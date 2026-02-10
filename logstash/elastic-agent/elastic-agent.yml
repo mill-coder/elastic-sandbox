@@ -1,0 +1,54 @@
+outputs:
+  default:
+    type: elasticsearch
+    hosts: ["${ELASTIC_AGENT_ES_HOST}"]
+    username: "${ELASTIC_AGENT_ES_USER}"
+    password: "${ELASTIC_AGENT_ES_PASSWORD}"
+
+inputs:
+  - id: logstash-log
+    type: filestream
+    data_stream:
+      type: logs
+      dataset: logstash.log
+      namespace: app
+    paths:
+      - /var/log/logstash/logstash-json.log
+    parsers:
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+    processors:
+      - copy_fields:
+          fields:
+            - from: "logEvent.message"
+              to: "message"
+          fail_on_error: false
+          ignore_missing: true
+      - rename:
+          fields:
+            - from: "level"
+              to: "log.level"
+            - from: "loggerName"
+              to: "log.logger"
+            - from: "thread"
+              to: "process.thread.name"
+          fail_on_error: false
+          ignore_missing: true
+      - timestamp:
+          field: "timeMillis"
+          layouts:
+            - "UNIX_MS"
+          ignore_missing: true
+          ignore_failure: true
+      - drop_fields:
+          fields: ["timeMillis"]
+          ignore_missing: true
+
+  # Logstash metrics: standalone Elastic Agent does not support */metrics inputs
+  # (metricsets are not passed through to metricbeat). JVM/pipeline metrics
+  # collection is a follow-up — add standalone Metricbeat or wait for agent fix.
+
+agent.monitoring:
+  enabled: false

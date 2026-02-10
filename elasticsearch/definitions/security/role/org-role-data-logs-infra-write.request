@@ -1,0 +1,9 @@
+PUT _security/role/org_data_logs_infra_write
+{
+  "indices": [
+    {
+      "names": ["logs-*-infra*"],
+      "privileges": ["create_doc", "create_index", "auto_configure"]
+    }
+  ]
+}

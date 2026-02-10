@@ -1,0 +1,106 @@
+# ES-to-ES Import Pipeline Template
+#
+# Import data from a remote Elasticsearch into the local Elastic stack.
+#
+# Quick start:
+#   1. Set REMOTE_ES_HOSTS, REMOTE_ES_USER, REMOTE_ES_PASSWORD in your .env file
+#   2. Copy this file:  cp es_import.conf.example my_import.conf
+#   3. Edit my_import.conf — search for "CUSTOMIZE" and adjust marked fields
+#   4. Register in pipelines.yml:
+#        - pipeline.id: my_import
+#          path.config: "/usr/share/logstash/pipeline/my_import.conf"
+#   5. Start Logstash:
+#        podman compose -f install/compose.yaml --env-file install/local/.env --profile logstash up -d
+#
+# See doc/es-import.md for full documentation (incremental imports, scheduling,
+# multiple imports, SSL, troubleshooting).
+
+input {
+  elasticsearch {
+    hosts => ["${REMOTE_ES_HOSTS}"]
+    user => "${REMOTE_ES_USER}"
+    password => "${REMOTE_ES_PASSWORD}"
+    ssl_enabled => true
+    # If the remote ES uses a custom/corporate CA, add the CA cert path:
+    # ssl_certificate_authorities => ["/usr/share/logstash/config/certs/remote-ca.crt"]
+
+    # CUSTOMIZE: source index or data stream pattern
+    index => "logs-*"
+
+    # CUSTOMIZE: query to select documents (use :last_value for incremental imports)
+    query => '{ "query": { "range": { "@timestamp": { "gt": ":last_value" } } } }'
+
+    # Incremental import tracking — picks up where the last run left off
+    tracking_field => "@timestamp"
+    tracking_field_seed => "1970-01-01T00:00:00.000Z"
+    # CUSTOMIZE: unique path per pipeline (use the pipeline name in the filename)
+    last_run_metadata_path => "/usr/share/logstash/data/.es_import_last_run"
+
+    search_api => "search_after"
+    docinfo => true
+    docinfo_target => "[@metadata][docinfo]"
+
+    # Recurring import — uncomment and set a cron expression for scheduled runs
+    # schedule => "*/5 * * * *"
+  }
+}
+
+filter {
+  # Map to data stream fields for the local Elastic stack
+  mutate {
+    # CUSTOMIZE: set the target data stream coordinates
+    add_field => {
+      "[data_stream][type]" => "logs"
+      "[data_stream][dataset]" => "imported"
+      "[data_stream][namespace]" => "app"
+    }
+  }
+
+  # Remove metadata fields added by the elasticsearch input
+  mutate {
+    remove_field => ["@version"]
+  }
+
+  # --- Alternative mappings (uncomment one if needed) ---
+
+  # Option A: Preserve original data_stream fields from the source
+  # (useful when the source already has correct data_stream fields)
+  #
+  # No mutate needed — the source [data_stream] fields pass through as-is.
+  # Just remove the add_field block above.
+
+  # Option B: Derive data_stream fields from the source index name
+  # (useful when importing from indices named like "logs-dataset-namespace")
+  #
+  # ruby {
+  #   code => '
+  #     index = event.get("[@metadata][docinfo][_index]")
+  #     if index
+  #       parts = index.split("-", 3)
+  #       if parts.length >= 3
+  #         event.set("[data_stream][type]", parts[0])
+  #         event.set("[data_stream][dataset]", parts[1])
+  #         event.set("[data_stream][namespace]", parts[2])
+  #       end
+  #     end
+  #   '
+  # }
+}
+
+output {
+  # Output to local Elasticsearch as a data stream
+  elasticsearch {
+    hosts => ["${LOGSTASH_ES_HOSTS}"]
+    user => "${LOGSTASH_ES_USER}"
+    password => "${LOGSTASH_ES_PASSWORD}"
+    data_stream => true
+  }
+
+  # --- Alternative: output to a raw index (not a data stream) ---
+  # elasticsearch {
+  #   hosts => ["${LOGSTASH_ES_HOSTS}"]
+  #   user => "${LOGSTASH_ES_USER}"
+  #   password => "${LOGSTASH_ES_PASSWORD}"
+  #   index => "imported-data"
+  # }
+}

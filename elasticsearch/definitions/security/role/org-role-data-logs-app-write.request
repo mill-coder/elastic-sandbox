@@ -1,0 +1,9 @@
+PUT _security/role/org_data_logs_app_write
+{
+  "indices": [
+    {
+      "names": ["logs-*-app*"],
+      "privileges": ["create_doc", "create_index", "auto_configure"]
+    }
+  ]
+}

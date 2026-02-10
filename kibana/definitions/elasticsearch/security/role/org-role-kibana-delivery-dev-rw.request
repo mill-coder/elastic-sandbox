@@ -1,0 +1,20 @@
+PUT _security/role/org_kibana_delivery_dev_rw
+{
+  "applications": [
+    {
+      "application": "kibana-.kibana",
+      "privileges": [
+        "feature_discover.all",
+        "feature_dashboard.all",
+        "feature_visualize.all",
+        "feature_logs.all",
+        "feature_infrastructure.all",
+        "feature_apm.all",
+        "feature_uptime.all",
+        "feature_slo.all",
+        "feature_dev_tools.all"
+      ],
+      "resources": ["space:org-team-mobile", "space:org-team-web", "space:org-team-customers", "space:org-analytics", "space:default"]
+    }
+  ]
+}

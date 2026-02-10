@@ -1,0 +1,11 @@
+POST /api/data_views/data_view
+{
+  "override": true,
+  "data_view": {
+    "id": "org-logs-siem",
+    "title": "logs-*-siem*",
+    "name": "Logs - SIEM",
+    "timeFieldName": "@timestamp",
+    "allowNoIndex": true
+  }
+}

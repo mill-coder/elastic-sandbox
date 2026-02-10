@@ -1,0 +1,10 @@
+PUT _component_template/org-settings-roll-7d-retain-30d
+{
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.lifecycle.name": "org-roll-7d-retain-30d"
+    }
+  }
+}

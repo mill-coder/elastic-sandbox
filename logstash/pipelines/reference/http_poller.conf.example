@@ -1,0 +1,36 @@
+input {
+  http_poller {
+    id => "http_poller_google_fr"
+    urls => {
+      google_fr => "https://www.google.fr"
+    }
+    schedule => { cron => "*/10 * * * * *" }
+    request_timeout => 10
+    metadata_target => "http_poller_metadata"
+  }
+}
+
+filter {
+  mutate {
+    id => "mutate_set_datastream_fields"
+    add_field => {
+      "[data_stream][type]" => "logs"
+      "[data_stream][dataset]" => "www_google"
+      "[data_stream][namespace]" => "app"
+    }
+  }
+  mutate {
+    id => "mutate_cleanup"
+    remove_field => ["@version", "message"]
+  }
+}
+
+output {
+  elasticsearch {
+    id => "es_output_google_check"
+    hosts => ["${LOGSTASH_ES_HOSTS}"]
+    user => "${LOGSTASH_ES_USER}"
+    password => "${LOGSTASH_ES_PASSWORD}"
+    data_stream => true
+  }
+}

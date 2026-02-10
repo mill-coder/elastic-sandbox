@@ -1,0 +1,6 @@
+POST _security/user/logstash-monitoring-agent
+{
+  "password": "password",
+  "roles": ["org_logstash_agent"],
+  "full_name": "Elastic Agent — Logstash observability (sample)"
+}

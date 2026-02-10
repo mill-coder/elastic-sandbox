@@ -1,0 +1,12 @@
+PUT _index_template/org-index-logs-infra
+{
+  "index_patterns": ["logs-*.index-infra", "logs-*.index-infra.*"],
+  "priority": 560,
+  "composed_of": [
+    "org-settings-roll-7d-retain-30d",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}

@@ -1,0 +1,9 @@
+PUT _security/role/org_data_logs_analytics
+{
+  "indices": [
+    {
+      "names": ["logs-*-analytics*"],
+      "privileges": ["read", "view_index_metadata"]
+    }
+  ]
+}

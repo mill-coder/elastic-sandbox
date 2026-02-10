@@ -1,0 +1,10 @@
+PUT _security/role/org_manage_logs
+{
+  "cluster": ["monitor", "manage_index_templates", "manage_ilm"],
+  "indices": [
+    {
+      "names": ["logs-*"],
+      "privileges": ["manage"]
+    }
+  ]
+}

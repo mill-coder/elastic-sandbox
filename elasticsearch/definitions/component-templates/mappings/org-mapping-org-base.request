@@ -1,0 +1,13 @@
+PUT _component_template/org-mapping-org-base
+{
+  "template": {
+    "mappings": {
+      "properties": {
+        "org": {
+          "type": "object",
+          "dynamic": true
+        }
+      }
+    }
+  }
+}

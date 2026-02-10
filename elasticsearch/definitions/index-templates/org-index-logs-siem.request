@@ -1,0 +1,12 @@
+PUT _index_template/org-index-logs-siem
+{
+  "index_patterns": ["logs-*.index-siem", "logs-*.index-siem.*"],
+  "priority": 563,
+  "composed_of": [
+    "org-settings-roll-30d-retain-2y",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}

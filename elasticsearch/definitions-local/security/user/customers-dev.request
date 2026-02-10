@@ -1,0 +1,6 @@
+POST _security/user/customers_dev
+{
+  "password": "password",
+  "roles": ["org_data_logs_app", "org_data_logs_analytics"],
+  "full_name": "CUSTOMERS Developer (sample)"
+}

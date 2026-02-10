@@ -1,0 +1,11 @@
+POST /s/org-analytics/api/data_views/data_view
+{
+  "override": true,
+  "data_view": {
+    "id": "org-analytics:org-logs-analytics",
+    "title": "logs-*-analytics*",
+    "name": "Logs - Analytics",
+    "timeFieldName": "@timestamp",
+    "allowNoIndex": true
+  }
+}

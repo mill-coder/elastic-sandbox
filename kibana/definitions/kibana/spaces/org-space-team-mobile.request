@@ -1,0 +1,6 @@
+POST /api/spaces/space
+{
+  "id": "org-team-mobile",
+  "name": "MOBILE Team",
+  "color": "#7854B3"
+}

@@ -1,0 +1,37 @@
+PUT _security/role/org_kibana_infra_ops_rw
+{
+  "applications": [
+    {
+      "application": "kibana-.kibana",
+      "privileges": [
+        "feature_discover.all",
+        "feature_dashboard.all",
+        "feature_visualize.all",
+        "feature_logs.all",
+        "feature_infrastructure.all",
+        "feature_apm.all",
+        "feature_uptime.all",
+        "feature_slo.all",
+        "feature_dev_tools.all",
+        "feature_alerting.all",
+        "feature_actions.all"
+      ],
+      "resources": ["space:org-infra-servers", "space:org-infra-databases"]
+    },
+    {
+      "application": "kibana-.kibana",
+      "privileges": [
+        "feature_discover.all",
+        "feature_dashboard.all",
+        "feature_visualize.all",
+        "feature_logs.all",
+        "feature_infrastructure.all",
+        "feature_apm.all",
+        "feature_uptime.all",
+        "feature_slo.all",
+        "feature_dev_tools.all"
+      ],
+      "resources": ["space:org-analytics", "space:default"]
+    }
+  ]
+}

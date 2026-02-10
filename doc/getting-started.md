@@ -12,18 +12,29 @@ This guide walks you through setting up elastic-sandbox on your local machine an
 ## Clone and run
 
 - Cloning the repository
-- Understand and adapt the `.env` file
-- Start the base stack (Elasticsearch only)
+- Understand and adapt the `install/local/.env` file
+- Start the base stack (Elasticsearch + Kibana + Logstash)
+    ```
+    podman compose -f install/compose.yaml \
+      --env-file install/local/.env \
+      --profile kibana \
+      --profile logstash \
+      up -d
+    ```
 
-## Verifying the stack is healthy
+- browse [http://localhost:5601](http://locahost:5601)
 
-- Checking container status
-- Querying the Elasticsearch API
-- Accessing Kibana in the browser
-- Reviewing init container logs
-
-## Stopping and cleaning up
-
-- Stopping the stack
-- Removing volumes for a fresh start
-- Reclaiming disk space
+ - login with one user pre-defined in sample org:
+    
+    | user | password | type |
+    |------|----------|------|
+    | `elastic` | `changeme` | admin
+    | `mobile_dev` | `password` | delivery dev
+    | `mobile_ops` | `password` | delivery ops
+    | `customer_dev` | `password` | delivery dev
+    | `customer_ops` | `password` | delivery ops
+    | `web_dev` | `password` | delivery dev
+    | `web_ops` | `password` | delivery ops
+    | `servers_ops` | `password` | infra ops
+    | `databases_ops` | `password` | infra ops
+    

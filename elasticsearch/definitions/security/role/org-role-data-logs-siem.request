@@ -1,0 +1,9 @@
+PUT _security/role/org_data_logs_siem
+{
+  "indices": [
+    {
+      "names": ["logs-*-siem*"],
+      "privileges": ["read", "view_index_metadata"]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+POST /s/org-infra-databases/api/data_views/data_view
+{
+  "override": true,
+  "data_view": {
+    "id": "org-infra-databases:org-logs-infra",
+    "title": "logs-*-infra*",
+    "name": "Logs - Infra",
+    "timeFieldName": "@timestamp",
+    "allowNoIndex": true
+  }
+}

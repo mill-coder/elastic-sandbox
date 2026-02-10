@@ -1,0 +1,6 @@
+POST /api/spaces/space
+{
+  "id": "org-team-web",
+  "name": "WEB Team",
+  "color": "#7854B3"
+}

@@ -1,0 +1,6 @@
+POST _security/user/data_writer
+{
+  "password": "password",
+  "roles": ["org_data_logs_infra_write", "org_data_logs_app_write"],
+  "full_name": "Data Writer (sample)"
+}

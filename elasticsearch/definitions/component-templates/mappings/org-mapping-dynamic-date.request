@@ -1,0 +1,46 @@
+PUT _component_template/org-mapping-dynamic-date
+{
+  "template": {
+    "mappings": {
+      "date_detection": true,
+      "dynamic_date_formats": [
+        "strict_date_optional_time",
+        "yyyy/MM/dd HH:mm:ss Z||yyyy/MM/dd Z"
+      ],
+      "dynamic_templates": [
+        {
+          "dates_at": {
+            "match": "*_at",
+            "mapping": {
+              "type": "date"
+            }
+          }
+        },
+        {
+          "dates_time": {
+            "match": "*_time",
+            "mapping": {
+              "type": "date"
+            }
+          }
+        },
+        {
+          "dates_date": {
+            "match": "*_date",
+            "mapping": {
+              "type": "date"
+            }
+          }
+        },
+        {
+          "dates_timestamp": {
+            "match": "*timestamp",
+            "mapping": {
+              "type": "date"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+POST _security/user/analyst
+{
+  "password": "password",
+  "roles": ["org_data_logs_analytics"],
+  "full_name": "Business Analyst (sample)"
+}

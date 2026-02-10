@@ -1,0 +1,11 @@
+POST /s/org-team-web/api/data_views/data_view
+{
+  "override": true,
+  "data_view": {
+    "id": "org-team-web:org-logs-app",
+    "title": "logs-*-app*",
+    "name": "Logs - App",
+    "timeFieldName": "@timestamp",
+    "allowNoIndex": true
+  }
+}

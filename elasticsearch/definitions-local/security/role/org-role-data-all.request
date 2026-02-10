@@ -1,0 +1,10 @@
+PUT _security/role/org_data_all
+{
+  "cluster": ["monitor", "manage_index_templates", "manage_ilm", "manage_pipeline"],
+  "indices": [
+    {
+      "names": ["*"],
+      "privileges": ["all"]
+    }
+  ]
+}

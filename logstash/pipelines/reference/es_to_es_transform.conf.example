@@ -1,0 +1,38 @@
+input {
+  elasticsearch {
+    id => "es_input_filebeat_logstash"
+    hosts => "${LOGSTASH_ES_HOSTS}"
+    user => "${LOGSTASH_ES_USER}"
+    password => "${LOGSTASH_ES_PASSWORD}"
+    index => "filebeat-8.19.10"
+    query => '{ "query": { "bool": { "must": [ { "term": { "event.module": "logstash" } }, { "range": { "@timestamp": { "gt": ":last_value" } } } ] } }, "sort": [ { "@timestamp": { "order": "asc" } } ] }'
+    schedule => "*/10 * * * * *"
+    tracking_field => "@timestamp"
+    tracking_field_seed => "1970-01-01T00:00:00.000Z"
+  }
+}
+
+filter {
+  mutate {
+    id => "mutate_set_datastream_fields"
+    add_field => {
+      "[data_stream][type]" => "logs"
+      "[data_stream][dataset]" => "logstash"
+      "[data_stream][namespace]" => "app"
+    }
+  }
+  mutate {
+    id => "mutate_cleanup_metadata"
+    remove_field => ["@version"]
+  }
+}
+
+output {
+  elasticsearch {
+    id => "es_output_logstash_datastream"
+    hosts => ["${LOGSTASH_ES_HOSTS}"]
+    user => "${LOGSTASH_ES_USER}"
+    password => "${LOGSTASH_ES_PASSWORD}"
+    data_stream => true
+  }
+}
