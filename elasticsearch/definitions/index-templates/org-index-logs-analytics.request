@@ -1,0 +1,12 @@
+PUT _index_template/org-index-logs-analytics
+{
+  "index_patterns": ["logs-*.index-analytics", "logs-*.index-analytics.*"],
+  "priority": 562,
+  "composed_of": [
+    "org-settings-roll-30d-retain-5y",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}

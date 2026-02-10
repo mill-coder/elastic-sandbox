@@ -1,0 +1,11 @@
+POST /s/org-team-mobile/api/data_views/data_view
+{
+  "override": true,
+  "data_view": {
+    "id": "org-team-mobile:org-logs-analytics",
+    "title": "logs-*-analytics*",
+    "name": "Logs - Analytics",
+    "timeFieldName": "@timestamp",
+    "allowNoIndex": true
+  }
+}

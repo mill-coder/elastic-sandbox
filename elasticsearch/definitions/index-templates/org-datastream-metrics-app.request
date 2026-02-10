@@ -1,0 +1,13 @@
+PUT _index_template/org-datastream-metrics-app
+{
+  "index_patterns": ["metrics-*-app", "metrics-*-app.*"],
+  "priority": 551,
+  "data_stream": {},
+  "composed_of": [
+    "org-settings-roll-7d-retain-30d",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}

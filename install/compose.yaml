@@ -1,0 +1,375 @@
+# Elastic Stack — shared Compose definition
+# Usage (single-command startup — init containers handle all orchestration):
+#
+# Base stack (Elasticsearch only, fully initialized):
+#   podman compose -f install/compose.yaml --env-file install/local/.env up -d
+#
+# Optional Kibana (opt-in via --profile):
+#   podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana up -d
+#
+# Optional Logstash + observability (requires --profile kibana):
+#   podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile logstash up -d
+#   Includes: logstash, logstash-monitoring-agent (Elastic Agent), pipeline-health-checker
+#
+# Optional Mattermost (opt-in via --profile):
+#   podman compose -f install/compose.yaml --env-file install/local/.env --profile mattermost up -d
+
+services:
+  # ---------------------------------------------------------------------------
+  # Elasticsearch
+  # ---------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    container_name: elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=${CLUSTER_NAME}
+      - discovery.type=single-node
+      - bootstrap.memory_lock=false
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - "ES_JAVA_OPTS=-Xms${ES_HEAP_SIZE} -Xmx${ES_HEAP_SIZE}"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "${ES_PORT}:9200"
+    networks:
+      - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Init: Elasticsearch definitions (ILM, templates, roles, sample users)
+  # ---------------------------------------------------------------------------
+  es-init:
+    build: ./images/init
+    container_name: es-init
+    environment:
+      - ES_URL=http://elasticsearch:9200
+      - ELASTIC_USER=${ELASTIC_USER:-elastic}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - START_TRIAL_LICENSE=${START_TRIAL_LICENSE:-false}
+      - DEPLOY_SAMPLE_USERS=${DEPLOY_SAMPLE_USERS:-false}
+      - DEPLOY_MODE=es
+      - DEFS_DIR=/definitions
+      - DEFS_LOCAL_DIR=/definitions-local
+      - WAIT_TIMEOUT=120
+    volumes:
+      - ./deploy-definitions.sh:/scripts/deploy-definitions.sh:ro,Z
+      - ../elasticsearch/definitions:/definitions:ro,Z
+      - ../elasticsearch/definitions-local:/definitions-local:ro,Z
+    entrypoint: ["bash", "/scripts/deploy-definitions.sh"]
+    networks:
+      - elastic
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Init: Kibana prerequisites in ES (kibana roles, kibana_system password,
+  #        role assignments for sample users)
+  # ---------------------------------------------------------------------------
+  kibana-pre-init:
+    build: ./images/init
+    container_name: kibana-pre-init
+    profiles:
+      - kibana
+    environment:
+      - ES_URL=http://elasticsearch:9200
+      - ELASTIC_USER=${ELASTIC_USER:-elastic}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-}
+      - DEPLOY_SAMPLE_USERS=${DEPLOY_SAMPLE_USERS:-false}
+      - DEPLOY_MODE=es
+      - DEFS_DIR=/definitions/elasticsearch
+      - DEFS_LOCAL_DIR=/definitions-local
+      - WAIT_TIMEOUT=120
+    volumes:
+      - ./deploy-definitions.sh:/scripts/deploy-definitions.sh:ro,Z
+      - ./add-roles-to-users.sh:/scripts/add-roles-to-users.sh:ro,Z
+      - ../kibana/definitions:/definitions:ro,Z
+      - ../kibana/definitions-local:/definitions-local:ro,Z
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        bash /scripts/deploy-definitions.sh
+        if [ "$$DEPLOY_SAMPLE_USERS" = "true" ] && [ -d /definitions-local/security/role-assignments ]; then
+          bash /scripts/add-roles-to-users.sh /definitions-local/security/role-assignments
+        fi
+    networks:
+      - elastic
+    depends_on:
+      es-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Kibana
+  # ---------------------------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION}
+    container_name: kibana
+    profiles:
+      - kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY:-a]X3k9Lp2mN7qR5sT1uV8wY0zB4cD6eF}
+    ports:
+      - "${KIBANA_PORT}:5601"
+    networks:
+      - elastic
+    depends_on:
+      kibana-pre-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:5601/api/status | grep -q '\"level\":\"available\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Init: Kibana definitions (spaces, data views)
+  # ---------------------------------------------------------------------------
+  kibana-init:
+    build: ./images/init
+    container_name: kibana-init
+    profiles:
+      - kibana
+    environment:
+      - ES_URL=http://elasticsearch:9200
+      - KB_URL=http://kibana:5601
+      - ELASTIC_USER=${ELASTIC_USER:-elastic}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - DEPLOY_MODE=kibana
+      - DEFS_DIR=/definitions/kibana
+      - WAIT_TIMEOUT=120
+    volumes:
+      - ./deploy-definitions.sh:/scripts/deploy-definitions.sh:ro,Z
+      - ../kibana/definitions:/definitions:ro,Z
+    entrypoint: ["bash", "/scripts/deploy-definitions.sh"]
+    networks:
+      - elastic
+    depends_on:
+      kibana:
+        condition: service_healthy
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Logstash
+  # ---------------------------------------------------------------------------
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION}
+    container_name: logstash
+    profiles:
+      - logstash
+    environment:
+      - "LS_JAVA_OPTS=-Xms${LOGSTASH_HEAP_SIZE:-256m} -Xmx${LOGSTASH_HEAP_SIZE:-256m}"
+      - LOGSTASH_ES_HOSTS=${LOGSTASH_ES_HOSTS:-http://elasticsearch:9200}
+      - LOGSTASH_ES_USER=${LOGSTASH_ES_USER:-logstash}
+      - LOGSTASH_ES_PASSWORD=${LOGSTASH_ES_PASSWORD:-password}
+      - xpack.management.enabled=true
+      - xpack.management.elasticsearch.hosts=${LOGSTASH_ES_HOSTS:-http://elasticsearch:9200}
+      - xpack.management.elasticsearch.username=${LOGSTASH_ES_USER:-logstash}
+      - xpack.management.elasticsearch.password=${LOGSTASH_ES_PASSWORD:-password}
+      - xpack.management.pipeline.id=["*"]
+      - xpack.management.logstash.poll_interval=5s
+      - xpack.monitoring.enabled=false
+      - dead_letter_queue.enable=true
+      - log.format=json
+      - log.level=info
+    volumes:
+      - logstash-data:/usr/share/logstash/data
+      - logstash-logs:/usr/share/logstash/logs
+      - ../logstash/config/log4j2.properties:/usr/share/logstash/config/log4j2.properties:ro,Z
+    user: root
+    entrypoint: ["/bin/bash", "-c", "chown logstash:root /usr/share/logstash/data /usr/share/logstash/logs && exec runuser -u logstash -- /usr/local/bin/docker-entrypoint"]
+    networks:
+      - elastic
+    depends_on:
+      logstash-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Init: Logstash definitions (ES users/roles/templates + Kibana pipelines)
+  # ---------------------------------------------------------------------------
+  logstash-init:
+    build: ./images/init
+    container_name: logstash-init
+    profiles:
+      - logstash
+    environment:
+      - ES_URL=http://elasticsearch:9200
+      - KB_URL=http://kibana:5601
+      - ELASTIC_USER=${ELASTIC_USER:-elastic}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - DEPLOY_SAMPLE_USERS=${DEPLOY_SAMPLE_USERS:-false}
+      - PIPELINE_DIR=/pipelines
+      - WAIT_TIMEOUT=120
+    volumes:
+      - ./deploy-definitions.sh:/scripts/deploy-definitions.sh:ro,Z
+      - ./deploy-logstash-pipelines.sh:/scripts/deploy-logstash-pipelines.sh:ro,Z
+      - ./import-saved-objects.sh:/scripts/import-saved-objects.sh:ro,Z
+      - ../logstash/definitions:/definitions:ro,Z
+      - ../logstash/definitions-local:/definitions-local:ro,Z
+      - ../logstash/pipelines:/pipelines:ro,Z
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        # Deploy logstash ES definitions (roles, users)
+        DEPLOY_MODE=es DEFS_DIR=/definitions/elasticsearch DEFS_LOCAL_DIR=/definitions-local/elasticsearch \
+          bash /scripts/deploy-definitions.sh
+        # Deploy logstash pipelines to Kibana
+        bash /scripts/deploy-logstash-pipelines.sh
+        # Import Kibana saved objects (dashboards, etc.)
+        OBJECTS_DIR=/definitions-local/kibana/saved-objects \
+          bash /scripts/import-saved-objects.sh
+    networks:
+      - elastic
+    depends_on:
+      kibana-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Logstash observability satellites
+  # ---------------------------------------------------------------------------
+  logstash-monitoring-agent:
+    image: docker.elastic.co/beats/elastic-agent:${ELASTIC_VERSION}
+    container_name: logstash-monitoring-agent
+    profiles:
+      - logstash
+    environment:
+      - ELASTIC_AGENT_ES_HOST=${ELASTIC_AGENT_ES_HOST:-http://elasticsearch:9200}
+      - ELASTIC_AGENT_ES_USER=${ELASTIC_AGENT_ES_USER:-logstash-monitoring-agent}
+      - ELASTIC_AGENT_ES_PASSWORD=${ELASTIC_AGENT_ES_PASSWORD:-password}
+    volumes:
+      - ../logstash/elastic-agent/elastic-agent.yml:/usr/share/elastic-agent/elastic-agent.yml:ro,Z
+      - logstash-logs:/var/log/logstash:ro
+    user: root
+    networks:
+      - elastic
+    depends_on:
+      logstash-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  pipeline-health-checker:
+    build: ./images/init
+    container_name: pipeline-health-checker
+    profiles:
+      - logstash
+    environment:
+      - ES_URL=${PIPELINE_HEALTH_ES_URL:-http://elasticsearch:9200}
+      - LOGSTASH_URL=${PIPELINE_HEALTH_LOGSTASH_URL:-http://logstash:9600}
+      - ES_USER=${LOGSTASH_ES_USER:-logstash}
+      - ES_PASSWORD=${LOGSTASH_ES_PASSWORD:-password}
+      - CHECK_INTERVAL=${PIPELINE_HEALTH_CHECK_INTERVAL:-10}
+    volumes:
+      - ../logstash/scripts/logstash-pipelines-healthchecker.sh:/check.sh:ro,Z
+      - logstash-data:/usr/share/logstash/data:ro
+    entrypoint: ["bash", "/check.sh"]
+    networks:
+      - elastic
+    depends_on:
+      logstash-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Mattermost (opt-in via --profile mattermost)
+  # ---------------------------------------------------------------------------
+  mattermost-db:
+    image: postgres:15-alpine
+    container_name: mattermost-db
+    profiles:
+      - mattermost
+    environment:
+      - POSTGRES_USER=${MM_DB_USER:-mmuser}
+      - POSTGRES_PASSWORD=${MM_DB_PASSWORD:-mmpassword}
+      - POSTGRES_DB=${MM_DB_NAME:-mattermost}
+    volumes:
+      - mattermost-db-data:/var/lib/postgresql/data
+    networks:
+      - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MM_DB_USER:-mmuser} -d ${MM_DB_NAME:-mattermost}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mattermost:
+    image: mattermost/mattermost-team-edition:${MM_VERSION:-10.4}
+    container_name: mattermost
+    profiles:
+      - mattermost
+    environment:
+      - TZ=UTC
+      - MM_SQLSETTINGS_DRIVERNAME=postgres
+      - MM_SQLSETTINGS_DATASOURCE=postgres://${MM_DB_USER:-mmuser}:${MM_DB_PASSWORD:-mmpassword}@mattermost-db:5432/${MM_DB_NAME:-mattermost}?sslmode=disable&connect_timeout=10
+      - MM_SERVICESETTINGS_SITEURL=${MM_SITE_URL:-http://localhost:8065}
+      - MM_SERVICESETTINGS_ENABLEINCOMINGWEBHOOKS=true
+      - MM_SERVICESETTINGS_ENABLEOUTGOINGWEBHOOKS=true
+      - MM_SERVICESETTINGS_ENABLEPOSTUSERNAMEOVERRIDE=true
+      - MM_SERVICESETTINGS_ENABLEPOSTICONOVERRIDE=true
+      - MM_TEAMSETTINGS_ENABLEOPENSERVER=true
+      - MM_EMAILSETTINGS_REQUIREEMAILVERIFICATION=false
+      - MM_EMAILSETTINGS_SENDEMAILNOTIFICATIONS=false
+      - MM_LOGSETTINGS_ENABLECONSOLE=true
+      - MM_LOGSETTINGS_CONSOLELEVEL=INFO
+    ports:
+      - "${MM_PORT:-8065}:8065"
+    volumes:
+      - mattermost-data:/mattermost/data
+      - mattermost-logs:/mattermost/logs
+      - mattermost-config:/mattermost/config
+      - mattermost-plugins:/mattermost/plugins
+      - mattermost-client-plugins:/mattermost/client/plugins
+    networks:
+      - elastic
+    depends_on:
+      mattermost-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:8065/api/v4/system/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  es-data:
+    driver: local
+  logstash-data:
+    driver: local
+  logstash-logs:
+    driver: local
+  mattermost-db-data:
+    driver: local
+  mattermost-data:
+    driver: local
+  mattermost-logs:
+    driver: local
+  mattermost-config:
+    driver: local
+  mattermost-plugins:
+    driver: local
+  mattermost-client-plugins:
+    driver: local
+
+# TO BE REMOVED at some point (tactic addition for specific local IP network collision)
+networks:
+  elastic:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

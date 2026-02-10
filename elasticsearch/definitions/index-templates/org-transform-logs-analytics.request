@@ -1,0 +1,12 @@
+PUT _index_template/org-transform-logs-analytics
+{
+  "index_patterns": ["logs-*.transform-analytics", "logs-*.transform-analytics.*"],
+  "priority": 572,
+  "composed_of": [
+    "org-settings-no-ilm",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}

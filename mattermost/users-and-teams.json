@@ -1,0 +1,49 @@
+{
+  "users": [
+    {"username": "mobile_ops", "email": "mobile_ops@example.com", "first_name": "MOBILE", "last_name": "Ops"},
+    {"username": "mobile_dev", "email": "mobile_dev@example.com", "first_name": "MOBILE", "last_name": "Dev"},
+    {"username": "web_ops", "email": "web_ops@example.com", "first_name": "WEB", "last_name": "Ops"},
+    {"username": "web_dev", "email": "web_dev@example.com", "first_name": "WEB", "last_name": "Dev"},
+    {"username": "customers_ops", "email": "customers_ops@example.com", "first_name": "CUSTOMERS", "last_name": "Ops"},
+    {"username": "customers_dev", "email": "customers_dev@example.com", "first_name": "CUSTOMERS", "last_name": "Dev"},
+    {"username": "servers_ops", "email": "servers_ops@example.com", "first_name": "SERVERS", "last_name": "Ops"},
+    {"username": "databases_ops", "email": "databases_ops@example.com", "first_name": "DATABASES", "last_name": "Ops"}
+  ],
+  "teams": [
+    {
+      "name": "delivery-mobile",
+      "display_name": "MOBILE Team",
+      "type": "O",
+      "channels": ["lounge", "elastic-alerts"],
+      "members": ["mobile_ops", "mobile_dev"]
+    },
+    {
+      "name": "delivery-web",
+      "display_name": "WEB Team",
+      "type": "O",
+      "channels": ["lounge", "elastic-alerts"],
+      "members": ["web_ops", "web_dev"]
+    },
+    {
+      "name": "delivery-customers",
+      "display_name": "CUSTOMERS Team",
+      "type": "O",
+      "channels": ["lounge", "elastic-alerts"],
+      "members": ["customers_ops", "customers_dev"]
+    },
+    {
+      "name": "infrastructure-servers",
+      "display_name": "SERVERS Team",
+      "type": "O",
+      "channels": ["lounge", "elastic-alerts"],
+      "members": ["servers_ops"]
+    },
+    {
+      "name": "infrastructure-databases",
+      "display_name": "DATABASES Team",
+      "type": "O",
+      "channels": ["lounge", "elastic-alerts"],
+      "members": ["databases_ops"]
+    }
+  ]
+}

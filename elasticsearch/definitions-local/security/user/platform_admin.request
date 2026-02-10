@@ -1,0 +1,6 @@
+POST _security/user/platform_admin
+{
+  "password": "password",
+  "roles": ["org_platform_admin"],
+  "full_name": "Platform Admin (sample)"
+}

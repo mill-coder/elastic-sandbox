@@ -1,0 +1,9 @@
+PUT _security/role/org_data_logs_app
+{
+  "indices": [
+    {
+      "names": ["logs-*-app*"],
+      "privileges": ["read", "view_index_metadata"]
+    }
+  ]
+}

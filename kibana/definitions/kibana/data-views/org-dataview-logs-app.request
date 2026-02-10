@@ -1,0 +1,11 @@
+POST /api/data_views/data_view
+{
+  "override": true,
+  "data_view": {
+    "id": "org-logs-app",
+    "title": "logs-*-app*",
+    "name": "Logs - App",
+    "timeFieldName": "@timestamp",
+    "allowNoIndex": true
+  }
+}

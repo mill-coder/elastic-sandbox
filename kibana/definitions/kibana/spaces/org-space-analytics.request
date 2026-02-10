@@ -1,0 +1,6 @@
+POST /api/spaces/space
+{
+  "id": "org-analytics",
+  "name": "Business Analytics",
+  "color": "#DA8B45"
+}

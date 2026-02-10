@@ -1,0 +1,6 @@
+POST /api/spaces/space
+{
+  "id": "org-infra-databases",
+  "name": "DATABASES Infrastructure",
+  "color": "#D36086"
+}

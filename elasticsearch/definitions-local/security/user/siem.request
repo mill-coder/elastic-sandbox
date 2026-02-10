@@ -1,0 +1,6 @@
+POST _security/user/siem
+{
+  "password": "password",
+  "roles": ["org_data_logs_siem", "org_data_logs_infra", "org_data_logs_app", "org_data_logs_analytics"],
+  "full_name": "SIEM (sample)"
+}

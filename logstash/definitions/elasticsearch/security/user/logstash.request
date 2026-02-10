@@ -1,0 +1,6 @@
+POST _security/user/logstash
+{
+  "password": "password",
+  "roles": ["logstash_admin", "org_data_all"],
+  "full_name": "Logstash (sample)"
+}

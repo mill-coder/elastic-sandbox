@@ -1,0 +1,13 @@
+PUT _index_template/org-datastream-logs-siem
+{
+  "index_patterns": ["logs-*-siem", "logs-*-siem.*"],
+  "priority": 553,
+  "data_stream": {},
+  "composed_of": [
+    "org-settings-roll-30d-retain-2y",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}

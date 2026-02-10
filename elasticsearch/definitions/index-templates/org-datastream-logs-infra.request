@@ -1,0 +1,13 @@
+PUT _index_template/org-datastream-logs-infra
+{
+  "index_patterns": ["logs-*-infra", "logs-*-infra.*"],
+  "priority": 550,
+  "data_stream": {},
+  "composed_of": [
+    "org-settings-roll-7d-retain-30d",
+    "org-mapping-dynamic-date",
+    "org-mapping-dynamic-base",
+    "org-mapping-ecs-base",
+    "org-mapping-org-base"
+  ]
+}
