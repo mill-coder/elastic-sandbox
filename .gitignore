@@ -1,0 +1,21 @@
+# Claude Code project docs (private, never committed)
+CLAUDE.md
+claude/
+
+# Scratch / working files
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Environment files with secrets
+.env
+*.env.local
