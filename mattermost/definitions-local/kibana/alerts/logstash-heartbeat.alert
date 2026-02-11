@@ -1,0 +1,29 @@
+{
+  "key": "heartbeat-monitor-down",
+  "name": "Logstash Monitor DOWN",
+  "rule_type": "es-query",
+  "enabled": true,
+  "tags": ["monitor", "logstash", "mattermost"],
+  "schedule_interval": "10s",
+  "actions": [
+    {
+      "connector_name": "Mattermost - SERVERS Team",
+      "group": "query matched",
+      "message": ":warning: **Alert: Logstash DOWN**\n\n**Rule:** {{rule.name}}\n**Time:** {{context.date}}\n\n[View in Kibana]({{context.link}})"
+    },
+    {
+      "connector_name": "Mattermost - SERVERS Team",
+      "group": "recovered",
+      "message": ":white_check_mark: **Logstash Recovered**\n\n**Rule:** {{rule.name}}\n**Time:** {{context.date}}\n\nWe're back online."
+    }
+  ],
+  "params": {
+    "index_pattern": "logs-*",
+    "time_field": "@timestamp",
+    "time_window": {"size": 1, "unit": "m"},
+    "threshold": {"comparator": ">=", "value": 1},
+    "size": 100,
+    "query": {"query": {"bool": {"filter": [{"term": {"data_stream.dataset": "logstash.log"}}]}}}
+  }
+}
+
