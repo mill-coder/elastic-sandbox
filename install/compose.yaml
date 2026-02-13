@@ -148,13 +148,22 @@ services:
       - KB_URL=http://kibana:5601
       - ELASTIC_USER=${ELASTIC_USER:-elastic}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - DEPLOY_SAMPLE_USERS=${DEPLOY_SAMPLE_USERS:-false}
       - DEPLOY_MODE=kibana
       - DEFS_DIR=/definitions/kibana
       - WAIT_TIMEOUT=120
     volumes:
       - ./deploy-definitions.sh:/scripts/deploy-definitions.sh:ro,Z
+      - ./import-saved-objects.sh:/scripts/import-saved-objects.sh:ro,Z
       - ../kibana/definitions:/definitions:ro,Z
-    entrypoint: ["bash", "/scripts/deploy-definitions.sh"]
+      - ../kibana/definitions-local:/definitions-local:ro,Z
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        bash /scripts/deploy-definitions.sh
+        if [ "$$DEPLOY_SAMPLE_USERS" = "true" ] && [ -d /definitions-local/kibana/saved-objects ]; then
+          OBJECTS_DIR=/definitions-local/kibana/saved-objects bash /scripts/import-saved-objects.sh
+        fi
     networks:
       - elastic
     depends_on:
