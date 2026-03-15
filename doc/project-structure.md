@@ -72,29 +72,48 @@ kibana/
   definitions/
     elasticsearch/             # ES resources that Kibana depends on
     kibana/                    # Kibana API resources (spaces, data views)
-  definitions-local/           # Local-only Kibana resources
+  definitions-local/
+    kibana/
+      saved-objects/           # Local-only Kibana saved objects (*.ndjson)
+    security/
+      role-assignments/        # Role assignments for sample users
 
 logstash/
   definitions/
     elasticsearch/             # ES resources that Logstash depends on
   definitions-local/
     elasticsearch/             # Local-only satellite definitions
+    kibana/
+      saved-objects/           # Logstash monitoring dashboard (*.ndjson)
   config/                      # Logstash logging config
   elastic-agent/               # Standalone Elastic Agent config
   pipelines/                   # Managed pipeline .conf files
     reference/                 # Reference pipeline examples (not deployed)
   scripts/                     # Sidecar scripts (pipeline health checker)
 
+mattermost/
+  definitions-local/
+    kibana/
+      alerts/                  # Kibana alert definitions for Mattermost notifications
+
 install/
   compose.yaml                 # Shared Compose definition
   deploy-definitions.sh        # Generic definition deploy script
   deploy-logstash-pipelines.sh # Pipeline deploy script
+  deploy-kibana-alerts.sh      # Kibana alerts deploy script
+  deploy-mattermost.sh         # Mattermost setup script
+  import-saved-objects.sh      # Kibana saved objects import tool (*.ndjson)
+  export-kibana-objects.sh     # Kibana saved objects export helper
   add-roles-to-users.sh        # Merge roles into existing ES users
   images/
     init/
       Dockerfile               # Init container base image (Alpine + curl/bash/jq)
   local/
     .env                       # Local dev environment variables
+    start-all.sh               # Start full stack
+    start-mini.sh              # Start minimal stack
+    start-logstash.sh          # Start stack with Logstash
+    prune.sh                   # Remove containers and volumes
 
 doc/                           # Documentation and golden path guides
   howtos/                      # Golden path how-to guides

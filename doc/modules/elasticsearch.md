@@ -20,9 +20,10 @@ When the stack starts, the Elasticsearch init container deploys the following re
 ```
 elasticsearch/
   definitions/                   # Production-like definitions
-    ilm/                         # ILM policies
-    component-template/          # Component templates (settings, mappings)
-    index-template/              # Index templates (data streams, standard indices)
+    ilm-policies/                # ILM policies
+    component-templates/         # Component templates (settings, mappings)
+    index-templates/             # Index templates (data streams, standard indices)
+    ingest-pipelines/            # Ingest pipeline definitions
     security/
       role/                      # Security roles
   definitions-local/             # Local sandbox only
@@ -33,7 +34,7 @@ elasticsearch/
 
 ## What you can do as a user
 
-- **Add or modify ILM policies** — create a new `.request` file in `definitions/ilm/` to define a custom lifecycle policy
+- **Add or modify ILM policies** — create a new `.request` file in `definitions/ilm-policies/` to define a custom lifecycle policy
 - **Create index templates** — add component templates and compose them into index templates for new data streams
 - **Define security roles** — add `.request` files in `definitions/security/role/` to control who can read or write which data
 - **Add sample users** — create local-only users in `definitions-local/security/user/` for testing role-based access in Kibana

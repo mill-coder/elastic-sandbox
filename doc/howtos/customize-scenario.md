@@ -10,10 +10,10 @@ The built-in scenario defines several things you may want to change:
 |------|-------|----------------|
 | Organization prefix | All `.request` filenames and resource names | Rename `org-` / `org_` to `mycompany-` / `mycompany_` |
 | Log categories | ILM policies, index templates, security roles | Add a `compliance` category, remove `other` |
-| Retention policies | `elasticsearch/definitions/ilm/` | Change `app` retention from 30 days to 90 days |
+| Retention policies | `elasticsearch/definitions/ilm-policies/` | Change `app` retention from 30 days to 90 days |
 | Security roles | `elasticsearch/definitions/security/role/` | Add roles for new teams, adjust index patterns |
-| Kibana spaces | `kibana/definitions/kibana/space/` | Create spaces matching your team structure |
-| Data views | `kibana/definitions/kibana/data-view/` | Add data views for new data streams |
+| Kibana spaces | `kibana/definitions/kibana/spaces/` | Create spaces matching your team structure |
+| Data views | `kibana/definitions/kibana/data-views/` | Add data views for new data streams |
 | Sample users | `elasticsearch/definitions-local/security/user/` | Create users matching your local testing needs |
 | Custom fields | Component templates in `elasticsearch/definitions/` | Add `mycompany.[product].*` field mappings |
 
@@ -33,7 +33,7 @@ Review the [log categories table](../org-builtin-scenario.md#log-categories-and-
 
 - **Add a category** — create a new ILM policy, component templates, index template, and read/write security roles following the existing patterns
 - **Remove a category** — delete the corresponding `.request` files for its ILM policy, index template, and security roles
-- **Change retention** — edit the ILM policy `.request` file to adjust rollover and delete timing
+- **Change retention** — edit the ILM policy `.request` file in `elasticsearch/definitions/ilm-policies/` to adjust rollover and delete timing
 
 ### 3. Adjust security roles
 
@@ -47,8 +47,8 @@ Review the security roles in `elasticsearch/definitions/security/role/`. Each ro
 
 If you changed log categories or team structure:
 
-- Create or update space definitions in `kibana/definitions/kibana/space/`
-- Create or update data views in `kibana/definitions/kibana/data-view/` to match your data stream naming
+- Create or update space definitions in `kibana/definitions/kibana/spaces/`
+- Create or update data views in `kibana/definitions/kibana/data-views/` to match your data stream naming
 
 ### 5. Update sample users
 

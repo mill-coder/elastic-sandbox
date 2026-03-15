@@ -30,7 +30,7 @@ The sandbox ships with a ready-to-use example scenario that you can adapt to you
 
 ```bash
 # Clone the repository
-git clone https://github.com/nouknouk/elastic-sandbox.git
+git clone https://github.com/mill-coder/elastic-sandbox.git
 cd elastic-sandbox
 
 # Start Elasticsearch only

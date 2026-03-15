@@ -11,6 +11,7 @@ When the stack starts with the `logstash` profile, the module sets up:
 - **Pipeline deployment** — `deploy-logstash-pipelines.sh` pushes `.conf` files from `pipelines/` into Elasticsearch as managed pipelines
 - **Heartbeat pipeline** — a system pipeline (`_heartbeat`) that keeps Logstash alive when no developer pipelines are deployed
 - **Pipeline health checker** — a sidecar script that monitors pipeline status
+- **Kibana monitoring dashboard** — a pre-built dashboard (imported via saved objects) for monitoring Logstash pipeline health
 
 ## Directory layout
 

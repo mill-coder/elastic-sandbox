@@ -17,16 +17,19 @@ kibana/
   definitions/
     elasticsearch/               # ES resources Kibana depends on (roles, etc.)
     kibana/                      # Kibana API resources
-      space/                     # Space definitions
-      data-view/                 # Data view definitions
+      spaces/                    # Space definitions
+      data-views/                # Data view definitions
   definitions-local/             # Local sandbox only
-    kibana/                      # Local-only Kibana resources (sample dashboards, etc.)
+    kibana/
+      saved-objects/             # Local-only Kibana saved objects (*.ndjson dashboards, landing pages)
+    security/
+      role-assignments/          # Role assignments adding Kibana roles to sample users
 ```
 
 ## What you can do as a user
 
-- **Create or customize spaces** — add a `.request` file in `definitions/kibana/space/` to define a new Kibana space for a team
-- **Add data views** — create data views in `definitions/kibana/data-view/` so users can explore specific data streams in Discover
+- **Create or customize spaces** — add a `.request` file in `definitions/kibana/spaces/` to define a new Kibana space for a team
+- **Add data views** — create data views in `definitions/kibana/data-views/` so users can explore specific data streams in Discover
 - **Build dashboards locally** — use the Kibana UI to build dashboards, saved queries, and visualizations in your sandbox, then export them as definitions
 - **Test alerting rules** — configure alerting rules in a team's space and verify they trigger correctly (combine with the Mattermost module to test notifications end-to-end)
 - **Test role-based access** — log in as different sample users to verify that each team sees only the spaces and data relevant to their role

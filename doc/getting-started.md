@@ -29,12 +29,16 @@ This guide walks you through setting up elastic-sandbox on your local machine an
     | user | password | type |
     |------|----------|------|
     | `elastic` | `changeme` | admin
+    | `platform_admin` | `password` | platform admin
     | `mobile_dev` | `password` | delivery dev
     | `mobile_ops` | `password` | delivery ops
-    | `customer_dev` | `password` | delivery dev
-    | `customer_ops` | `password` | delivery ops
+    | `customers_dev` | `password` | delivery dev
+    | `customers_ops` | `password` | delivery ops
     | `web_dev` | `password` | delivery dev
     | `web_ops` | `password` | delivery ops
     | `servers_ops` | `password` | infra ops
     | `databases_ops` | `password` | infra ops
+    | `analyst` | `password` | business analyst
+    | `siem` | `password` | IT risk / SIEM
+    | `data_writer` | `password` | ingest agent
     
