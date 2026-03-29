@@ -4,6 +4,7 @@
   "urls": "http://kibana:5601",
   "schedule": {"number": "1", "unit": "m"},
   "policy": "org-lan",
+  "space": "org-infra-servers",
   "tags": ["infra-servers", "kibana", "local"],
   "labels": {
     "org_team": "infra-servers",

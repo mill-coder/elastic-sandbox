@@ -52,6 +52,7 @@ JSON objects defining lightweight HTTP monitors. The `policy` field links the mo
   "urls": "http://elasticsearch:9200",
   "schedule": {"number": "1", "unit": "m"},
   "policy": "org-lan",
+  "space": "org-infra-servers",
   "tags": ["infra-servers", "elasticsearch", "local"],
   "labels": {
     "org_team": "infra-servers",
@@ -60,7 +61,9 @@ JSON objects defining lightweight HTTP monitors. The `policy` field links the mo
 }
 ```
 
-Monitor naming convention: `{team}-{name}-{environment}` where team identifiers match Kibana space IDs (e.g., `infra-servers`, `team-customers`, `team-mobile`).
+- **`policy`** — links the monitor to an agent policy (via its Private Location)
+- **`space`** — Kibana space where the monitor is created (Synthetics monitors are single-space; omit for `default`)
+- Monitor naming convention: `{team}-{name}-{environment}` where team identifiers match Kibana space IDs (e.g., `infra-servers`, `team-customers`, `team-mobile`)
 
 ## What you can do as a user
 

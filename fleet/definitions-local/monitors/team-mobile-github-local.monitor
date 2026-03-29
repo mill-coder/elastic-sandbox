@@ -4,6 +4,7 @@
   "urls": "https://github.com",
   "schedule": {"number": "1", "unit": "m"},
   "policy": "org-www",
+  "space": "org-team-mobile",
   "tags": ["team-mobile", "github", "local"],
   "labels": {
     "org_team": "team-mobile",

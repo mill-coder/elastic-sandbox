@@ -414,24 +414,29 @@ deploy_monitors() {
         return
     fi
 
-    # Get existing monitors for idempotency check
-    local response
-    response="$(kb_api GET "/api/synthetics/monitors?perPage=1000")"
-    parse_response "$response"
-    local existing_monitors="$HTTP_BODY"
-
     for monitor_file in "$monitors_dir"/*.monitor; do
-        local monitor_name
+        local monitor_name monitor_space
         monitor_name="$(jq -r '.name' "$monitor_file")"
+        monitor_space="$(jq -r '.space // empty' "$monitor_file")"
         total=$((total + 1))
 
-        # Check if monitor already exists by name
+        # Build space-prefixed API path
+        local api_path="/api/synthetics/monitors"
+        if [ -n "$monitor_space" ]; then
+            api_path="/s/${monitor_space}/api/synthetics/monitors"
+        fi
+
+        # Check if monitor already exists by name in the target space
+        local response
+        response="$(kb_api GET "${api_path}?perPage=1000")"
+        parse_response "$response"
+
         local existing_id
-        existing_id="$(echo "$existing_monitors" | jq -r --arg name "$monitor_name" \
+        existing_id="$(echo "$HTTP_BODY" | jq -r --arg name "$monitor_name" \
             '.monitors[] | select(.name == $name) | .id // empty' 2>/dev/null)" || true
 
         if [ -n "$existing_id" ]; then
-            log "  OK   Monitor $monitor_name already exists"
+            log "  OK   Monitor $monitor_name already exists${monitor_space:+ (space=$monitor_space)}"
             ok=$((ok + 1))
             continue
         fi
@@ -445,7 +450,7 @@ deploy_monitors() {
         monitor_tags="$(jq -c '.tags' "$monitor_file")"
         monitor_labels="$(jq -c '.labels // {}' "$monitor_file")"
 
-        # Build the API payload
+        # Build the API payload (space is NOT part of the payload — it's in the URL)
         local payload
         payload="$(jq -n \
             --arg type "$monitor_type" \
@@ -466,11 +471,11 @@ deploy_monitors() {
                 labels: $labels
             }')"
 
-        response="$(kb_api POST "/api/synthetics/monitors" -d "$payload")"
+        response="$(kb_api POST "$api_path" -d "$payload")"
         parse_response "$response"
 
         if [[ "$HTTP_CODE" =~ ^2 ]]; then
-            log "  OK   Monitor $monitor_name ($HTTP_CODE)"
+            log "  OK   Monitor $monitor_name ($HTTP_CODE)${monitor_space:+ [space=$monitor_space]}"
             ok=$((ok + 1))
         else
             warn "  FAIL Monitor $monitor_name ($HTTP_CODE)"

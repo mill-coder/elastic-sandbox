@@ -4,6 +4,7 @@
   "urls": "http://elasticsearch:9200",
   "schedule": {"number": "1", "unit": "m"},
   "policy": "org-lan",
+  "space": "org-infra-servers",
   "tags": ["infra-servers", "elasticsearch", "local"],
   "labels": {
     "org_team": "infra-servers",

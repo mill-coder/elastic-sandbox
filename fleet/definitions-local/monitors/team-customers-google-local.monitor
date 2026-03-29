@@ -4,6 +4,7 @@
   "urls": "https://www.google.com",
   "schedule": {"number": "1", "unit": "m"},
   "policy": "org-www",
+  "space": "org-team-customers",
   "tags": ["team-customers", "google", "local"],
   "labels": {
     "org_team": "team-customers",
