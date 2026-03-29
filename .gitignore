@@ -9,6 +9,10 @@ tmp/
 .DS_Store
 Thumbs.db
 
+# MCP config (dev tooling)
+.mcp.json
+.playwright-mcp/
+
 # Editor / IDE
 *.swp
 *.swo
