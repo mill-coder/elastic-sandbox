@@ -11,6 +11,9 @@
 #   podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile logstash up -d
 #   Includes: logstash, logstash-monitoring-agent (Elastic Agent), pipeline-health-checker
 #
+# Optional Fleet Server + Elastic Agent (requires --profile kibana):
+#   podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile fleet up -d
+#
 # Optional Mattermost (opt-in via --profile):
 #   podman compose -f install/compose.yaml --env-file install/local/.env --profile mattermost up -d
 
@@ -355,6 +358,126 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Fleet (opt-in via --profile fleet, requires --profile kibana)
+  # ---------------------------------------------------------------------------
+
+  # Init: Fleet setup (service token, agent policy, enrollment token)
+  fleet-init:
+    build: ./images/init
+    container_name: fleet-init
+    profiles:
+      - fleet
+    environment:
+      - ES_URL=http://elasticsearch:9200
+      - KB_URL=http://kibana:5601
+      - ELASTIC_USER=${ELASTIC_USER:-elastic}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - FLEET_TOKENS_DIR=/fleet-tokens
+      - FLEET_SERVER_HOST=http://fleet-server:8220
+      - FLEET_AGENT_POLICY_NAME=org-default-agent-policy
+      - DEPLOY_SAMPLE_USERS=${DEPLOY_SAMPLE_USERS:-false}
+      - WAIT_TIMEOUT=120
+    volumes:
+      - ./deploy-fleet.sh:/scripts/deploy-fleet.sh:ro,Z
+      - ./deploy-definitions.sh:/scripts/deploy-definitions.sh:ro,Z
+      - ../fleet/definitions:/definitions:ro,Z
+      - ../fleet/definitions-local:/definitions-local:ro,Z
+      - fleet-tokens:/fleet-tokens:Z
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        # Deploy Fleet ES definitions (roles)
+        DEPLOY_MODE=es DEFS_DIR=/definitions/elasticsearch DEFS_LOCAL_DIR=/definitions-local/elasticsearch \
+          bash /scripts/deploy-definitions.sh
+        # Set up Fleet (tokens, policies, enrollment)
+        bash /scripts/deploy-fleet.sh
+    networks:
+      - elastic
+    depends_on:
+      kibana:
+        condition: service_healthy
+    restart: "no"
+
+  # Fleet Server (Elastic Agent in fleet-server mode)
+  fleet-server:
+    image: docker.elastic.co/beats/elastic-agent:${ELASTIC_VERSION}
+    container_name: fleet-server
+    profiles:
+      - fleet
+    environment:
+      - FLEET_SERVER_ENABLE=1
+      - FLEET_SERVER_INSECURE_HTTP=1
+      - FLEET_SERVER_HOST=0.0.0.0
+      - FLEET_SERVER_ELASTICSEARCH_HOST=http://elasticsearch:9200
+      - FLEET_SERVER_PORT=8220
+      - FLEET_URL=http://fleet-server:8220
+      - KIBANA_HOST=http://kibana:5601
+      - KIBANA_FLEET_SETUP=1
+    volumes:
+      - fleet-server-data:/usr/share/elastic-agent/data
+      - fleet-tokens:/fleet-tokens:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for service token..."
+        timeout=120; elapsed=0
+        while [ ! -f /fleet-tokens/service-token ] && [ $$elapsed -lt $$timeout ]; do
+          sleep 2; elapsed=$$((elapsed + 2))
+        done
+        if [ ! -f /fleet-tokens/service-token ]; then
+          echo "ERROR: service token not found after $${timeout}s"; exit 1
+        fi
+        export FLEET_SERVER_SERVICE_TOKEN="$$(cat /fleet-tokens/service-token)"
+        exec /usr/local/bin/docker-entrypoint
+    ports:
+      - "${FLEET_SERVER_PORT:-8220}:8220"
+    networks:
+      - elastic
+    depends_on:
+      fleet-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:8220/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  # Elastic Agent (enrolled to Fleet Server, complete image for Synthetics)
+  elastic-agent:
+    image: docker.elastic.co/beats/elastic-agent-complete:${ELASTIC_VERSION}
+    container_name: elastic-agent
+    profiles:
+      - fleet
+    environment:
+      - FLEET_ENROLL=1
+      - FLEET_URL=http://fleet-server:8220
+      - FLEET_INSECURE=1
+      - KIBANA_HOST=http://kibana:5601
+    volumes:
+      - elastic-agent-data:/usr/share/elastic-agent/data
+      - fleet-tokens:/fleet-tokens:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for enrollment token..."
+        timeout=180; elapsed=0
+        while [ ! -f /fleet-tokens/enrollment-token ] && [ $$elapsed -lt $$timeout ]; do
+          sleep 2; elapsed=$$((elapsed + 2))
+        done
+        if [ ! -f /fleet-tokens/enrollment-token ]; then
+          echo "ERROR: enrollment token not found after $${timeout}s"; exit 1
+        fi
+        export FLEET_ENROLLMENT_TOKEN="$$(cat /fleet-tokens/enrollment-token)"
+        exec /usr/local/bin/docker-entrypoint
+    networks:
+      - elastic
+    depends_on:
+      fleet-server:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   es-data:
     driver: local
@@ -373,6 +496,12 @@ volumes:
   mattermost-plugins:
     driver: local
   mattermost-client-plugins:
+    driver: local
+  fleet-tokens:
+    driver: local
+  fleet-server-data:
+    driver: local
+  elastic-agent-data:
     driver: local
 
 # TO BE REMOVED at some point (tactic addition for specific local IP network collision)

@@ -9,11 +9,12 @@ The project is composed of modules ; a module owns its definitions and the resou
 | [`elasticsearch`](modules/elasticsearch.md) | Core cluster definitions: ILM policies, component/index templates, security roles | — |
 | [`kibana`](modules/kibana.md) | Kibana resources (spaces, data views) and the ES resources Kibana depends on | `elasticsearch` |
 | [`logstash`](modules/logstash.md) | Deploys a managed logstash instance to let the developper write & test its own pipelines. | `elasticsearch`, `kibana` |
+| [`fleet`](modules/fleet.md) | Fleet Server and Elastic Agent for managing agent policies, integrations, and Synthetics monitors | `elasticsearch`, `kibana` |
 | [`mattermost`](modules/mattermost.md) | Deploy a mattemost instance with Teams having `elastic alerts` channels to dev/test kibana alerting rules & mattermost connector | — |
 
 ### Modular directory structure
 
-- Each module (`elasticsearch/`, `kibana/`, `logstash/`) owns its `definitions/` directory
+- Each module (`elasticsearch/`, `kibana/`, `logstash/`, `fleet/`) owns its `definitions/` directory
 - Modules can include resources for other services (e.g., `kibana/definitions/elasticsearch/`)
 - `definitions-local/` for resources only needed in the local sandbox (sample users, dev roles). Keeping local definitions separate from production-ready ones.
 
@@ -91,6 +92,16 @@ logstash/
     reference/                 # Reference pipeline examples (not deployed)
   scripts/                     # Sidecar scripts (pipeline health checker)
 
+fleet/
+  definitions/
+    elasticsearch/
+      security/
+        role/                    # Fleet admin role (org_fleet_admin)
+  definitions-local/
+    elasticsearch/
+      security/
+        role/                    # Fleet viewer role (org_fleet_viewer)
+
 mattermost/
   definitions-local/
     kibana/
@@ -101,6 +112,7 @@ install/
   deploy-definitions.sh        # Generic definition deploy script
   deploy-logstash-pipelines.sh # Pipeline deploy script
   deploy-kibana-alerts.sh      # Kibana alerts deploy script
+  deploy-fleet.sh              # Fleet Server setup script
   deploy-mattermost.sh         # Mattermost setup script
   import-saved-objects.sh      # Kibana saved objects import tool (*.ndjson)
   export-kibana-objects.sh     # Kibana saved objects export helper
@@ -113,6 +125,7 @@ install/
     start-all.sh               # Start full stack
     start-mini.sh              # Start minimal stack
     start-logstash.sh          # Start stack with Logstash
+    start-fleet.sh             # Start stack with Fleet
     prune.sh                   # Remove containers and volumes
 
 doc/                           # Documentation and golden path guides

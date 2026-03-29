@@ -21,6 +21,17 @@ This guide walks you through setting up elastic-sandbox on your local machine an
       --profile logstash \
       up -d
     ```
+  Or use a convenience script: `install/local/start-logstash.sh`
+
+- Optionally add Fleet (Fleet Server + Elastic Agent for Synthetics monitors):
+    ```
+    podman compose -f install/compose.yaml \
+      --env-file install/local/.env \
+      --profile kibana \
+      --profile fleet \
+      up -d
+    ```
+  Or use a convenience script: `install/local/start-fleet.sh`
 
 - browse [http://localhost:5601](http://locahost:5601)
 

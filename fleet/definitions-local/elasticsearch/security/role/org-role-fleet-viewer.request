@@ -1,0 +1,21 @@
+PUT _security/role/org_fleet_viewer
+{
+  "cluster": ["monitor"],
+  "indices": [
+    {
+      "names": [".fleet-*"],
+      "privileges": ["read"]
+    },
+    {
+      "names": ["logs-*", "metrics-*", "synthetics-*"],
+      "privileges": ["read"]
+    }
+  ],
+  "applications": [
+    {
+      "application": "kibana-.kibana",
+      "privileges": ["feature_fleet.read", "feature_fleetv2.read"],
+      "resources": ["*"]
+    }
+  ]
+}

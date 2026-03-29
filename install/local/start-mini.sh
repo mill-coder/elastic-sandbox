@@ -26,8 +26,8 @@ set +a
 
 log ""
 step "Starting containers..."
-podman compose \
-    --project-directory "$INSTALL_DIR" \
+cd "$INSTALL_DIR"
+podman-compose \
     -f "$COMPOSE_FILE" \
     --env-file "$ENV_FILE" \
     --profile kibana \

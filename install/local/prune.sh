@@ -20,13 +20,14 @@ log "  Env file:     $ENV_FILE"
 # Stop and remove containers, networks, and volumes for all profiles
 log ""
 log "Stopping containers and removing volumes (all profiles)..."
-podman compose \
-    --project-directory "$INSTALL_DIR" \
+cd "$INSTALL_DIR"
+podman-compose \
     -f "$COMPOSE_FILE" \
     --env-file "$ENV_FILE" \
     --profile kibana \
     --profile logstash \
     --profile heartbeat \
+    --profile fleet \
     --profile mattermost \
     down -v --remove-orphans 2>&1 | sed 's/^/  /'
 

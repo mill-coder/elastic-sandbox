@@ -17,7 +17,7 @@ step() { printf '\033[1;32m-->\033[0m %s\n' "$*"; }
 log "Starting full Elastic stack (all profiles)"
 log "  Compose file: $COMPOSE_FILE"
 log "  Env file:     $ENV_FILE"
-log "  Profiles:     kibana, logstash, mattermost"
+log "  Profiles:     kibana, logstash, fleet, mattermost"
 
 # Load environment for deploy script
 set -a
@@ -27,12 +27,13 @@ set +a
 
 log ""
 step "Starting containers..."
-podman compose \
-    --project-directory "$INSTALL_DIR" \
+cd "$INSTALL_DIR"
+podman-compose \
     -f "$COMPOSE_FILE" \
     --env-file "$ENV_FILE" \
     --profile kibana \
     --profile logstash \
+    --profile fleet \
     --profile mattermost \
     up -d 2>&1 | sed 's/^/  /'
 
@@ -53,4 +54,5 @@ log "Full stack ready."
 log "  Elasticsearch: http://localhost:${ES_PORT:-9200}"
 log "  Kibana:        http://localhost:${KIBANA_PORT:-5601}"
 log "  Mattermost:    http://localhost:${MM_PORT:-8065}"
+log "  Fleet Server:  http://localhost:${FLEET_SERVER_PORT:-8220}"
 log "  Logstash:      running (no exposed port)"

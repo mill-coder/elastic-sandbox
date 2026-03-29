@@ -15,9 +15,9 @@ The project follows **platform engineering** principles: it provides opinionated
 - **Golden path documentation** — step-by-step guides for common development workflows
 - **Single-command startup** — bring up the full stack (or just the parts you need) with one `podman compose` command.
 - **Production-like structure** — define the same resources (ILM policies, index templates, security roles, data views) that exist in your production Elastic Stack, so your local sandbox closely mirrors the real environment
-- **Modular approach** — spin up as much or as little of the stack as you need: a pre-configured Elasticsearch instance on its own, add a Kibana frontend, include a managed Logstash, or bring up the full stack
+- **Modular approach** — spin up as much or as little of the stack as you need: a pre-configured Elasticsearch instance on its own, add a Kibana frontend, include a managed Logstash, a Fleet Server with Elastic Agents, or bring up the full stack
 - **Disposable by design** — destroy and recreate your local stack from scratch in seconds, so you can experiment freely without worrying about leaving it in a broken state
-- **Compose profiles** — opt in to additional services (Kibana, Logstash, Mattermost) without changing the base configuration
+- **Compose profiles** — opt in to additional services (Kibana, Logstash, Fleet, Mattermost) without changing the base configuration
 - **Works on managed workstations** — designed for organization-managed workstations where developers have no admin rights.
 
 ## Out-of-the-box scenario
@@ -39,8 +39,11 @@ podman compose -f install/compose.yaml --env-file install/local/.env up -d
 # Start Elasticsearch + Kibana
 podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana up -d
 
-# Start the full stack (Elasticsearch + Kibana + Logstash)
-podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile logstash up -d
+# Start Elasticsearch + Kibana + Fleet (Fleet Server + Elastic Agent)
+podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile fleet up -d
+
+# Start the full stack (Elasticsearch + Kibana + Logstash + Fleet + Mattermost)
+podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile logstash --profile fleet --profile mattermost up -d
 ```
 
 See [doc/getting-started.md](doc/getting-started.md) for the full setup guide.
@@ -56,6 +59,7 @@ See [doc/getting-started.md](doc/getting-started.md) for the full setup guide.
 | [Elasticsearch](doc/modules/elasticsearch.md) | Core cluster: ILM policies, templates, security roles |
 | [Kibana](doc/modules/kibana.md) | Spaces, data views, dashboards, alerting |
 | [Logstash](doc/modules/logstash.md) | Managed ingest pipelines, Elastic Agent |
+| [Fleet](doc/modules/fleet.md) | Fleet Server, Elastic Agents, Synthetics monitors |
 | [Mattermost](doc/modules/mattermost.md) | Alert notifications and connector testing |
 | **How-tos** | |
 | [Deploy the stack locally](doc/howtos/deploy-stack-locally.md) | Compose profiles, starting, stopping, recreating the stack |

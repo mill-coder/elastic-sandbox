@@ -1,0 +1,21 @@
+PUT _security/role/org_fleet_admin
+{
+  "cluster": ["monitor", "read_fleet_secrets", "write_fleet_secrets"],
+  "indices": [
+    {
+      "names": [".fleet-*"],
+      "privileges": ["all"]
+    },
+    {
+      "names": ["logs-*", "metrics-*", "synthetics-*", "traces-*"],
+      "privileges": ["all"]
+    }
+  ],
+  "applications": [
+    {
+      "application": "kibana-.kibana",
+      "privileges": ["feature_fleet.all", "feature_fleetv2.all"],
+      "resources": ["*"]
+    }
+  ]
+}

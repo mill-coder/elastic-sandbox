@@ -18,6 +18,7 @@ Additional services are opt-in via Compose profiles. The base stack always runs;
 |---------|---------|-------------|
 | `kibana` | Kibana | Dashboards, Discover, data view management |
 | `logstash` | Logstash | Ingest pipelines with Elastic Agent |
+| `fleet` | Fleet Server + Elastic Agent | Agent policy management, integrations, Synthetics monitors |
 | `mattermost` | Mattermost | Chat integration for alerts and notifications |
 
 ## Starting with profiles
@@ -30,9 +31,23 @@ podman compose -f install/compose.yaml --env-file install/local/.env --profile k
 
 # Elasticsearch + Kibana + Logstash
 podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile logstash up -d
+
+# Elasticsearch + Kibana + Fleet (Fleet Server + Elastic Agent)
+podman compose -f install/compose.yaml --env-file install/local/.env --profile kibana --profile fleet up -d
 ```
 
-Combine profiles as needed depending on what you are working on.
+Combine profiles as needed depending on what you are working on. Fleet and Logstash both depend on Kibana — always include `--profile kibana` when using them.
+
+### Convenience scripts
+
+Convenience scripts in `install/local/` handle profile selection and orchestration:
+
+| Script | Profiles |
+|--------|----------|
+| `start-mini.sh` | `kibana` |
+| `start-logstash.sh` | `kibana`, `logstash` |
+| `start-fleet.sh` | `kibana`, `fleet` |
+| `start-all.sh` | `kibana`, `logstash`, `fleet`, `mattermost` |
 
 ## Stopping the stack
 
