@@ -1,0 +1,6 @@
+{
+  "name": "org-lan",
+  "namespace": "default",
+  "description": "Agent policy for monitoring internal/LAN services",
+  "monitoring_enabled": ["logs", "metrics"]
+}

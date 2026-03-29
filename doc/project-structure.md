@@ -96,11 +96,11 @@ fleet/
   definitions/
     elasticsearch/
       security/
-        role/                    # Fleet admin role (org_fleet_admin)
+        role/                    # Fleet roles (org_fleet_admin, org_fleet_viewer)
+    fleet/
+      agent-policies/            # Agent policy definitions (*.policy)
   definitions-local/
-    elasticsearch/
-      security/
-        role/                    # Fleet viewer role (org_fleet_viewer)
+    monitors/                    # Synthetics monitor definitions (*.monitor)
 
 mattermost/
   definitions-local/

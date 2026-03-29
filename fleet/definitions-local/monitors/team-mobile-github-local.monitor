@@ -1,0 +1,12 @@
+{
+  "name": "team-mobile-github-local",
+  "type": "http",
+  "urls": "https://github.com",
+  "schedule": {"number": "1", "unit": "m"},
+  "policy": "org-www",
+  "tags": ["team-mobile", "github", "local"],
+  "labels": {
+    "org_team": "team-mobile",
+    "org_environment": "local"
+  }
+}

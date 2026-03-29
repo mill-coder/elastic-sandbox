@@ -375,7 +375,8 @@ services:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - FLEET_TOKENS_DIR=/fleet-tokens
       - FLEET_SERVER_HOST=http://fleet-server:8220
-      - FLEET_AGENT_POLICY_NAME=org-default-agent-policy
+      - FLEET_POLICIES_DIR=/definitions/fleet/agent-policies
+      - FLEET_MONITORS_LOCAL_DIR=/definitions-local/monitors
       - DEPLOY_SAMPLE_USERS=${DEPLOY_SAMPLE_USERS:-false}
       - WAIT_TIMEOUT=120
     volumes:
@@ -444,10 +445,10 @@ services:
       retries: 30
     restart: unless-stopped
 
-  # Elastic Agent (enrolled to Fleet Server, complete image for Synthetics)
-  elastic-agent:
+  # Elastic Agent — LAN policy (monitors internal services)
+  elastic-agent-lan:
     image: docker.elastic.co/beats/elastic-agent-complete:${ELASTIC_VERSION}
-    container_name: elastic-agent
+    container_name: elastic-agent-lan
     profiles:
       - fleet
     environment:
@@ -456,20 +457,54 @@ services:
       - FLEET_INSECURE=1
       - KIBANA_HOST=http://kibana:5601
     volumes:
-      - elastic-agent-data:/usr/share/elastic-agent/data
+      - elastic-agent-lan-data:/usr/share/elastic-agent/data
       - fleet-tokens:/fleet-tokens:ro
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        echo "Waiting for enrollment token..."
+        echo "Waiting for enrollment token (org-lan)..."
         timeout=180; elapsed=0
-        while [ ! -f /fleet-tokens/enrollment-token ] && [ $$elapsed -lt $$timeout ]; do
+        while [ ! -f /fleet-tokens/enrollment-token-org-lan ] && [ $$elapsed -lt $$timeout ]; do
           sleep 2; elapsed=$$((elapsed + 2))
         done
-        if [ ! -f /fleet-tokens/enrollment-token ]; then
+        if [ ! -f /fleet-tokens/enrollment-token-org-lan ]; then
           echo "ERROR: enrollment token not found after $${timeout}s"; exit 1
         fi
-        export FLEET_ENROLLMENT_TOKEN="$$(cat /fleet-tokens/enrollment-token)"
+        export FLEET_ENROLLMENT_TOKEN="$$(cat /fleet-tokens/enrollment-token-org-lan)"
+        exec /usr/local/bin/docker-entrypoint
+    networks:
+      - elastic
+    depends_on:
+      fleet-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Elastic Agent — WWW policy (monitors external websites)
+  elastic-agent-www:
+    image: docker.elastic.co/beats/elastic-agent-complete:${ELASTIC_VERSION}
+    container_name: elastic-agent-www
+    profiles:
+      - fleet
+    environment:
+      - FLEET_ENROLL=1
+      - FLEET_URL=http://fleet-server:8220
+      - FLEET_INSECURE=1
+      - KIBANA_HOST=http://kibana:5601
+    volumes:
+      - elastic-agent-www-data:/usr/share/elastic-agent/data
+      - fleet-tokens:/fleet-tokens:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for enrollment token (org-www)..."
+        timeout=180; elapsed=0
+        while [ ! -f /fleet-tokens/enrollment-token-org-www ] && [ $$elapsed -lt $$timeout ]; do
+          sleep 2; elapsed=$$((elapsed + 2))
+        done
+        if [ ! -f /fleet-tokens/enrollment-token-org-www ]; then
+          echo "ERROR: enrollment token not found after $${timeout}s"; exit 1
+        fi
+        export FLEET_ENROLLMENT_TOKEN="$$(cat /fleet-tokens/enrollment-token-org-www)"
         exec /usr/local/bin/docker-entrypoint
     networks:
       - elastic
@@ -501,7 +536,9 @@ volumes:
     driver: local
   fleet-server-data:
     driver: local
-  elastic-agent-data:
+  elastic-agent-lan-data:
+    driver: local
+  elastic-agent-www-data:
     driver: local
 
 # TO BE REMOVED at some point (tactic addition for specific local IP network collision)

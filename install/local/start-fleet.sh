@@ -104,9 +104,9 @@ step "Starting fleet-server..."
 compose up -d --no-deps fleet-server 2>&1 | sed 's/^/  /'
 wait_healthy fleet-server 180
 
-# --- Elastic Agent ---------------------------------------------------------
-step "Starting elastic-agent..."
-compose up -d --no-deps elastic-agent 2>&1 | sed 's/^/  /'
+# --- Elastic Agents --------------------------------------------------------
+step "Starting elastic-agent-lan and elastic-agent-www..."
+compose up -d --no-deps elastic-agent-lan elastic-agent-www 2>&1 | sed 's/^/  /'
 
 log ""
 log "Stack with Fleet ready."

@@ -1,0 +1,6 @@
+{
+  "name": "org-www",
+  "namespace": "default",
+  "description": "Agent policy for monitoring external/internet websites",
+  "monitoring_enabled": ["logs", "metrics"]
+}

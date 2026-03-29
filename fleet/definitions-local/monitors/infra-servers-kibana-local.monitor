@@ -1,0 +1,12 @@
+{
+  "name": "infra-servers-kibana-local",
+  "type": "http",
+  "urls": "http://kibana:5601",
+  "schedule": {"number": "1", "unit": "m"},
+  "policy": "org-lan",
+  "tags": ["infra-servers", "kibana", "local"],
+  "labels": {
+    "org_team": "infra-servers",
+    "org_environment": "local"
+  }
+}

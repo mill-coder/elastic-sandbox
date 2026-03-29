@@ -1,36 +1,74 @@
 # Fleet module
 
-The `fleet/` module deploys a Fleet Server and an Elastic Agent so you can manage agent policies, integrations, and Synthetics monitors locally through the Kibana Fleet UI.
+The `fleet/` module deploys a Fleet Server and Elastic Agents so you can manage agent policies, integrations, and Synthetics monitors locally through the Kibana Fleet UI.
 
 ## What it provides
 
 When the stack starts with the `fleet` profile, the module sets up:
 
 - **Fleet Server** — control plane for Elastic Agents, running over HTTP (no TLS) for local dev
-- **Elastic Agent** — enrolled to Fleet Server, ready to receive policies and run integrations (uses the `elastic-agent-complete` image for Synthetics support)
-- **Fleet Server policy** — `Fleet Server Policy` with the `fleet_server` integration
-- **Default agent policy** — `org-default-agent-policy` with agent self-monitoring enabled
+- **Two Elastic Agents** — one per agent policy (`org-lan` for LAN monitoring, `org-www` for internet monitoring), using the `elastic-agent-complete` image for Synthetics support
+- **Agent policies** — defined as `.policy` files in `definitions/fleet/agent-policies/`, created automatically at startup
+- **Private Locations** — one per agent policy, enabling Synthetics monitors to target the correct agent
+- **Synthetics monitors** — defined as `.monitor` files in `definitions-local/monitors/`, deployed when `DEPLOY_SAMPLE_USERS=true`
 - **Fleet admin role** — `org_fleet_admin` for managing Fleet via Kibana
-- **Fleet viewer role** — `org_fleet_viewer` (local-only) for read-only Fleet access
-- **Automated token provisioning** — service token and enrollment token are generated at startup and passed to containers via a shared volume
+- **Fleet viewer role** — `org_fleet_viewer` for read-only Fleet access
+- **Automated token provisioning** — service token and per-policy enrollment tokens generated at startup via a shared volume
 
 ## Directory layout
 
 ```
 fleet/
   definitions/
-    elasticsearch/security/role/   # Fleet admin role (org_fleet_admin)
+    elasticsearch/security/role/       # Fleet roles (org_fleet_admin, org_fleet_viewer)
+    fleet/agent-policies/              # Agent policy definitions (*.policy)
   definitions-local/
-    elasticsearch/security/role/   # Fleet viewer role (org_fleet_viewer)
+    monitors/                          # Synthetics monitor definitions (*.monitor)
 ```
+
+## File formats
+
+### `.policy` files — agent policy definitions
+
+JSON objects consumed by `deploy-fleet.sh`. Each file creates one Fleet agent policy.
+
+```json
+{
+  "name": "org-lan",
+  "namespace": "default",
+  "description": "Agent policy for monitoring internal/LAN services",
+  "monitoring_enabled": ["logs", "metrics"]
+}
+```
+
+### `.monitor` files — Synthetics monitor definitions
+
+JSON objects defining lightweight HTTP monitors. The `policy` field links the monitor to an agent policy (via its Private Location).
+
+```json
+{
+  "name": "infra-servers-elasticsearch-local",
+  "type": "http",
+  "urls": "http://elasticsearch:9200",
+  "schedule": {"number": "1", "unit": "m"},
+  "policy": "org-lan",
+  "tags": ["infra-servers", "elasticsearch", "local"],
+  "labels": {
+    "org_team": "infra-servers",
+    "org_environment": "local"
+  }
+}
+```
+
+Monitor naming convention: `{team}-{name}-{environment}` where team identifiers match Kibana space IDs (e.g., `infra-servers`, `team-customers`, `team-mobile`).
 
 ## What you can do as a user
 
-- **Create agent policies** — define policies via the Kibana Fleet UI or API, assign integrations to them
-- **Add Synthetics monitors** — set up HTTP, TCP, or ICMP lightweight monitors that run on the enrolled agent (Private Location)
-- **Manage integrations** — install and configure any Fleet integration (System, HTTP, custom, etc.)
-- **Enroll additional agents** — use the enrollment token from the Kibana Fleet UI to enroll more agents
-- **Test agent policy changes** — modify policies and verify agents pick up the changes in real time
+- **Create agent policies** — add a `.policy` file in `definitions/fleet/agent-policies/` and it will be created on next startup
+- **Add Synthetics monitors** — add a `.monitor` file in `definitions-local/monitors/` to create HTTP health checks
+- **Manage integrations** — install and configure any Fleet integration via the Kibana Fleet UI or API
+- **Enroll additional agents** — use enrollment tokens from the Kibana Fleet UI
+- **Test agent policy changes** — modify policies and verify agents pick up changes in real time
 
 ## Security roles
 
@@ -39,7 +77,7 @@ Fleet RBAC in Elastic 8.x is not granular per-policy — access is all-or-nothin
 | Role | Scope | Description |
 |------|-------|-------------|
 | `org_fleet_admin` | Production-like | Full Fleet and integration management via Kibana |
-| `org_fleet_viewer` | Local sandbox only | Read-only access to Fleet status and agent list |
+| `org_fleet_viewer` | Production-like | Read-only access to Fleet status and agent list |
 
 ## Compose profile
 
@@ -66,10 +104,11 @@ install/local/start-fleet.sh
 
 ```
 kibana (healthy)
-  ├── kibana-init    (existing — spaces, data views)
-  └── fleet-init     (service token, Fleet settings, policies, enrollment token)
+  ├── kibana-init        (existing — spaces, data views)
+  └── fleet-init         (roles, service token, policies, Private Locations, monitors)
         └── fleet-server (healthy)
-              └── elastic-agent
+              ├── elastic-agent-lan   (enrolled to org-lan)
+              └── elastic-agent-www   (enrolled to org-www)
 ```
 
 `fleet-init` runs in parallel with `kibana-init` since it only needs the Kibana Fleet API, not spaces or data views.

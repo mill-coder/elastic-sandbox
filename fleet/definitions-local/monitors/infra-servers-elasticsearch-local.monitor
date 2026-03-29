@@ -1,0 +1,12 @@
+{
+  "name": "infra-servers-elasticsearch-local",
+  "type": "http",
+  "urls": "http://elasticsearch:9200",
+  "schedule": {"number": "1", "unit": "m"},
+  "policy": "org-lan",
+  "tags": ["infra-servers", "elasticsearch", "local"],
+  "labels": {
+    "org_team": "infra-servers",
+    "org_environment": "local"
+  }
+}

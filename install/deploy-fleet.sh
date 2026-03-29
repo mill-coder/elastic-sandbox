@@ -2,11 +2,12 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# deploy-fleet.sh — Set up Fleet Server and enroll an Elastic Agent.
+# deploy-fleet.sh — Set up Fleet Server, agent policies, and monitors.
 #
-# Creates a Fleet Server service token, configures Fleet settings in Kibana,
-# creates a default agent policy, and writes tokens to a shared volume for
-# fleet-server and elastic-agent containers to consume.
+# Data-driven: iterates over .policy files to create agent policies and
+# over .monitor files to create Synthetics lightweight monitors.
+# Tokens are written to a shared volume for fleet-server and elastic-agent
+# containers to consume.
 # ---------------------------------------------------------------------------
 
 # --- Configuration (from environment, with defaults) -----------------------
@@ -16,13 +17,18 @@ ELASTIC_USER="${ELASTIC_USER:-elastic}"
 ELASTIC_PASSWORD="${ELASTIC_PASSWORD:-changeme}"
 FLEET_TOKENS_DIR="${FLEET_TOKENS_DIR:-/fleet-tokens}"
 FLEET_SERVER_HOST="${FLEET_SERVER_HOST:-http://fleet-server:8220}"
-FLEET_AGENT_POLICY_NAME="${FLEET_AGENT_POLICY_NAME:-org-default-agent-policy}"
+FLEET_POLICIES_DIR="${FLEET_POLICIES_DIR:-/definitions/fleet/agent-policies}"
+FLEET_MONITORS_LOCAL_DIR="${FLEET_MONITORS_LOCAL_DIR:-/definitions-local/monitors}"
+DEPLOY_SAMPLE_USERS="${DEPLOY_SAMPLE_USERS:-false}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-120}"
 
 # --- Counters --------------------------------------------------------------
 total=0
 ok=0
 failed=0
+
+# --- State -----------------------------------------------------------------
+declare -A POLICY_IDS
 
 # --- Helpers ---------------------------------------------------------------
 
@@ -50,14 +56,12 @@ kb_api() {
         "${KB_URL}${path}" 2>&1
 }
 
-# Extract HTTP status code (last line) and body (everything else).
 parse_response() {
     local response="$1"
     HTTP_CODE="$(echo "$response" | tail -n1)"
     HTTP_BODY="$(echo "$response" | sed '$d')"
 }
 
-# Write content to file atomically.
 write_token() {
     local file="$1" content="$2"
     printf '%s' "$content" > "${file}.tmp"
@@ -106,7 +110,6 @@ create_service_token() {
     log "--- Creating Fleet Server service token ---"
     total=$((total + 1))
 
-    # Delete existing token (ignore 404)
     es_api DELETE "_security/service/elastic/fleet-server/credential/token/fleet-server-local" > /dev/null 2>&1 || true
 
     local response
@@ -159,7 +162,6 @@ configure_fleet_output() {
     log "--- Configuring Fleet Elasticsearch output ---"
     total=$((total + 1))
 
-    # Get the default output ID
     local response
     response="$(kb_api GET "/api/fleet/outputs")"
     parse_response "$response"
@@ -194,7 +196,6 @@ create_fleet_server_policy() {
     log "--- Creating Fleet Server policy ---"
     total=$((total + 1))
 
-    # Check if fleet-server policy already exists
     local response
     response="$(kb_api GET "/api/fleet/agent_policies?kuery=is_default_fleet_server:true")"
     parse_response "$response"
@@ -208,7 +209,6 @@ create_fleet_server_policy() {
         return
     fi
 
-    # Create the Fleet Server policy with has_fleet_server flag
     response="$(kb_api POST "/api/fleet/agent_policies" \
         -d '{
             "name": "Fleet Server Policy",
@@ -225,7 +225,6 @@ create_fleet_server_policy() {
         log "  OK   Fleet Server policy created (id=$policy_id) ($HTTP_CODE)"
         ok=$((ok + 1))
 
-        # Add fleet_server integration to the policy
         total=$((total + 1))
         response="$(kb_api POST "/api/fleet/package_policies" \
             -d "{
@@ -253,6 +252,9 @@ create_fleet_server_policy() {
             warn "       $HTTP_BODY"
             failed=$((failed + 1))
         fi
+    elif [[ "$HTTP_CODE" == "409" ]]; then
+        log "  OK   Fleet Server policy already exists ($HTTP_CODE)"
+        ok=$((ok + 1))
     else
         warn "  FAIL Fleet Server policy creation ($HTTP_CODE)"
         warn "       $HTTP_BODY"
@@ -260,81 +262,222 @@ create_fleet_server_policy() {
     fi
 }
 
-# --- Step 5: Create agent policy -------------------------------------------
+# --- Step 5: Create agent policies from .policy files ----------------------
 
-create_agent_policy() {
+create_agent_policies() {
     log ""
-    log "--- Creating agent policy: ${FLEET_AGENT_POLICY_NAME} ---"
-    total=$((total + 1))
+    log "--- Creating agent policies ---"
 
-    # Check if policy already exists
-    local response
-    response="$(kb_api GET "/api/fleet/agent_policies?kuery=name:${FLEET_AGENT_POLICY_NAME}")"
-    parse_response "$response"
-
-    local existing_id
-    existing_id="$(echo "$HTTP_BODY" | jq -r '.items[0].id // empty')"
-
-    if [ -n "$existing_id" ]; then
-        log "  OK   Agent policy already exists (id=$existing_id)"
-        ok=$((ok + 1))
-        AGENT_POLICY_ID="$existing_id"
+    if [ ! -d "$FLEET_POLICIES_DIR" ]; then
+        log "  No policy directory found at $FLEET_POLICIES_DIR — skipping"
         return
     fi
 
-    response="$(kb_api POST "/api/fleet/agent_policies" \
-        -d "{
-            \"name\": \"${FLEET_AGENT_POLICY_NAME}\",
-            \"namespace\": \"default\",
-            \"description\": \"Default agent policy for sandbox Elastic Agents\",
-            \"monitoring_enabled\": [\"logs\", \"metrics\"]
-        }")"
-    parse_response "$response"
-
-    if [[ "$HTTP_CODE" =~ ^2 ]]; then
-        AGENT_POLICY_ID="$(echo "$HTTP_BODY" | jq -r '.item.id')"
-        log "  OK   Agent policy created (id=$AGENT_POLICY_ID) ($HTTP_CODE)"
-        ok=$((ok + 1))
-    else
-        warn "  FAIL Agent policy creation ($HTTP_CODE)"
-        warn "       $HTTP_BODY"
-        failed=$((failed + 1))
-        AGENT_POLICY_ID=""
+    local count
+    count=$(find "$FLEET_POLICIES_DIR" -maxdepth 1 -name '*.policy' 2>/dev/null | wc -l)
+    if [ "$count" -eq 0 ]; then
+        log "  No .policy files found — skipping"
+        return
     fi
+
+    for policy_file in "$FLEET_POLICIES_DIR"/*.policy; do
+        local policy_name
+        policy_name="$(jq -r '.name' "$policy_file")"
+        total=$((total + 1))
+
+        # Check if policy already exists
+        local response
+        response="$(kb_api GET "/api/fleet/agent_policies?kuery=name:${policy_name}")"
+        parse_response "$response"
+
+        local existing_id
+        existing_id="$(echo "$HTTP_BODY" | jq -r '.items[0].id // empty')"
+
+        if [ -n "$existing_id" ]; then
+            log "  OK   Policy $policy_name already exists (id=$existing_id)"
+            ok=$((ok + 1))
+            POLICY_IDS[$policy_name]="$existing_id"
+        else
+            # Create the policy using the file's JSON content
+            response="$(kb_api POST "/api/fleet/agent_policies" -d "@${policy_file}")"
+            parse_response "$response"
+
+            if [[ "$HTTP_CODE" =~ ^2 ]]; then
+                local policy_id
+                policy_id="$(echo "$HTTP_BODY" | jq -r '.item.id')"
+                log "  OK   Policy $policy_name created (id=$policy_id) ($HTTP_CODE)"
+                ok=$((ok + 1))
+                POLICY_IDS[$policy_name]="$policy_id"
+            elif [[ "$HTTP_CODE" == "409" ]]; then
+                # Policy exists but kuery didn't find it — extract ID from error message
+                local conflict_id
+                conflict_id="$(echo "$HTTP_BODY" | jq -r '.message' | grep -oP "Agent Policy '\K[^']+")" || true
+                log "  OK   Policy $policy_name already exists ($HTTP_CODE)"
+                ok=$((ok + 1))
+                if [ -n "$conflict_id" ]; then
+                    POLICY_IDS[$policy_name]="$conflict_id"
+                fi
+            else
+                warn "  FAIL Policy $policy_name ($HTTP_CODE)"
+                warn "       $HTTP_BODY"
+                failed=$((failed + 1))
+                continue
+            fi
+        fi
+
+        # Get enrollment token for this policy
+        total=$((total + 1))
+        local pid="${POLICY_IDS[$policy_name]}"
+        response="$(kb_api GET "/api/fleet/enrollment-api-keys")"
+        parse_response "$response"
+
+        local token
+        token="$(echo "$HTTP_BODY" | jq -r --arg pid "$pid" \
+            '.items[] | select(.policy_id == $pid) | .api_key | select(. != null)' | head -1)"
+
+        if [ -n "$token" ] && [ "$token" != "null" ]; then
+            write_token "$FLEET_TOKENS_DIR/enrollment-token-${policy_name}" "$token"
+            log "  OK   Enrollment token for $policy_name written"
+            ok=$((ok + 1))
+        else
+            warn "  FAIL Could not find enrollment token for policy $policy_name (id=$pid)"
+            failed=$((failed + 1))
+        fi
+    done
 }
 
-# --- Step 6: Get enrollment token ------------------------------------------
+# --- Step 6: Create Private Locations for each policy ----------------------
 
-get_enrollment_token() {
+create_private_locations() {
     log ""
-    log "--- Retrieving enrollment token ---"
-    total=$((total + 1))
+    log "--- Creating Private Locations ---"
 
-    if [ -z "${AGENT_POLICY_ID:-}" ]; then
-        warn "  FAIL No agent policy ID — cannot retrieve enrollment token"
-        failed=$((failed + 1))
-        return 1
+    if [ ${#POLICY_IDS[@]} -eq 0 ]; then
+        log "  No agent policies — skipping"
+        return
     fi
 
+    # Get existing Private Locations
     local response
-    response="$(kb_api GET "/api/fleet/enrollment-api-keys")"
+    response="$(kb_api GET "/api/synthetics/private_locations")"
     parse_response "$response"
+    local existing_locations="$HTTP_BODY"
 
-    local token
-    token="$(echo "$HTTP_BODY" | jq -r --arg pid "$AGENT_POLICY_ID" \
-        '.items[] | select(.policy_id == $pid) | .api_key | select(. != null)' | head -1)"
+    for policy_name in "${!POLICY_IDS[@]}"; do
+        total=$((total + 1))
+        local policy_id="${POLICY_IDS[$policy_name]}"
 
-    if [ -n "$token" ] && [ "$token" != "null" ]; then
-        write_token "$FLEET_TOKENS_DIR/enrollment-token" "$token"
-        log "  OK   Enrollment token written to $FLEET_TOKENS_DIR/enrollment-token"
-        ok=$((ok + 1))
-        return 0
+        # Check if Private Location with this label already exists
+        local existing_id
+        existing_id="$(echo "$existing_locations" | jq -r --arg label "$policy_name" \
+            '.[] | select(.label == $label) | .id // empty' 2>/dev/null)" || true
+
+        if [ -n "$existing_id" ]; then
+            log "  OK   Private Location $policy_name already exists"
+            ok=$((ok + 1))
+            continue
+        fi
+
+        response="$(kb_api POST "/api/synthetics/private_locations" \
+            -d "{\"label\": \"${policy_name}\", \"agentPolicyId\": \"${policy_id}\"}")"
+        parse_response "$response"
+
+        if [[ "$HTTP_CODE" =~ ^2 ]]; then
+            log "  OK   Private Location $policy_name created ($HTTP_CODE)"
+            ok=$((ok + 1))
+        else
+            warn "  FAIL Private Location $policy_name ($HTTP_CODE)"
+            warn "       $HTTP_BODY"
+            failed=$((failed + 1))
+        fi
+    done
+}
+
+# --- Step 7: Deploy monitors from .monitor files ---------------------------
+
+deploy_monitors() {
+    local monitors_dir="$1"
+    local label="${2:-monitors}"
+
+    log ""
+    log "--- Deploying $label ($monitors_dir) ---"
+
+    if [ ! -d "$monitors_dir" ]; then
+        log "  No monitor directory found — skipping"
+        return
     fi
 
-    warn "  FAIL Could not find enrollment token for policy $AGENT_POLICY_ID"
-    warn "       $HTTP_BODY"
-    failed=$((failed + 1))
-    return 1
+    local count
+    count=$(find "$monitors_dir" -maxdepth 1 -name '*.monitor' 2>/dev/null | wc -l)
+    if [ "$count" -eq 0 ]; then
+        log "  No .monitor files found — skipping"
+        return
+    fi
+
+    # Get existing monitors for idempotency check
+    local response
+    response="$(kb_api GET "/api/synthetics/monitors?perPage=1000")"
+    parse_response "$response"
+    local existing_monitors="$HTTP_BODY"
+
+    for monitor_file in "$monitors_dir"/*.monitor; do
+        local monitor_name
+        monitor_name="$(jq -r '.name' "$monitor_file")"
+        total=$((total + 1))
+
+        # Check if monitor already exists by name
+        local existing_id
+        existing_id="$(echo "$existing_monitors" | jq -r --arg name "$monitor_name" \
+            '.monitors[] | select(.name == $name) | .id // empty' 2>/dev/null)" || true
+
+        if [ -n "$existing_id" ]; then
+            log "  OK   Monitor $monitor_name already exists"
+            ok=$((ok + 1))
+            continue
+        fi
+
+        # Read monitor definition
+        local monitor_type monitor_urls monitor_schedule monitor_policy monitor_tags monitor_labels
+        monitor_type="$(jq -r '.type' "$monitor_file")"
+        monitor_urls="$(jq -r '.urls' "$monitor_file")"
+        monitor_schedule="$(jq -c '.schedule' "$monitor_file")"
+        monitor_policy="$(jq -r '.policy' "$monitor_file")"
+        monitor_tags="$(jq -c '.tags' "$monitor_file")"
+        monitor_labels="$(jq -c '.labels // {}' "$monitor_file")"
+
+        # Build the API payload
+        local payload
+        payload="$(jq -n \
+            --arg type "$monitor_type" \
+            --arg name "$monitor_name" \
+            --arg urls "$monitor_urls" \
+            --argjson schedule "$monitor_schedule" \
+            --arg policy "$monitor_policy" \
+            --argjson tags "$monitor_tags" \
+            --argjson labels "$monitor_labels" \
+            '{
+                type: $type,
+                name: $name,
+                urls: $urls,
+                schedule: $schedule,
+                locations: [],
+                private_locations: [$policy],
+                tags: $tags,
+                labels: $labels
+            }')"
+
+        response="$(kb_api POST "/api/synthetics/monitors" -d "$payload")"
+        parse_response "$response"
+
+        if [[ "$HTTP_CODE" =~ ^2 ]]; then
+            log "  OK   Monitor $monitor_name ($HTTP_CODE)"
+            ok=$((ok + 1))
+        else
+            warn "  FAIL Monitor $monitor_name ($HTTP_CODE)"
+            warn "       $HTTP_BODY"
+            failed=$((failed + 1))
+        fi
+    done
 }
 
 # ---------------------------------------------------------------------------
@@ -350,8 +493,13 @@ create_service_token
 configure_fleet_server_hosts
 configure_fleet_output
 create_fleet_server_policy
-create_agent_policy
-get_enrollment_token
+create_agent_policies
+create_private_locations
+
+# Deploy monitors
+if [ "$DEPLOY_SAMPLE_USERS" = "true" ]; then
+    deploy_monitors "$FLEET_MONITORS_LOCAL_DIR" "local monitors"
+fi
 
 # --- Summary ---------------------------------------------------------------
 log ""
